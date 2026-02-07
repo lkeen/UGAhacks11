@@ -11,19 +11,55 @@ A multi-agent AI system that optimizes disaster relief supply chain logistics by
 
 ## Quick Start
 
-### Prerequisites
-- Python 3.11+
-- Docker (optional, for easy setup)
-
-### Installation
+### Option 1: Docker (Recommended)
 
 ```bash
 # Clone the repository
 git clone https://github.com/lkeen/UGAhacks11.git
 cd UGAhacks11
 
+# Copy environment file and add your API key
+cp .env.example .env
+# Edit .env and add your ANTHROPIC_API_KEY
+
+# Run both backend and frontend
+docker compose up --build
+
+# Backend: http://localhost:8000
+# Frontend: http://localhost:3000
+# API Docs: http://localhost:8000/docs
+```
+
+To stop: `docker compose down`
+
+### Option 2: Local Development
+
+#### Prerequisites
+- Python 3.11+
+- Node.js 18+
+
+#### System Dependencies
+
+**Fedora/RHEL:**
+```bash
+sudo dnf install gdal gdal-devel geos geos-devel proj proj-devel python3-devel gcc
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install gdal-bin libgdal-dev libgeos-dev libproj-dev python3-dev gcc
+```
+
+**macOS:**
+```bash
+brew install gdal geos proj
+```
+
+#### Backend Setup
+
+```bash
 # Create virtual environment
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
@@ -32,35 +68,18 @@ pip install -r requirements.txt
 # Set up environment variables
 cp .env.example .env
 # Edit .env and add your ANTHROPIC_API_KEY
-```
 
-### Data Setup
-
-```bash
-# Download OpenStreetMap road network for Western NC
-python scripts/download_osm.py
-
-# Download satellite imagery (requires Copernicus account)
-python scripts/download_satellite.py
-
-# Initialize database with schema
+# Initialize database
 python scripts/init_database.py
 
-# Load mock disaster events
+# Load sample data
 python scripts/load_events.py
-```
 
-### Run the Demo
-
-```bash
 # Start the API server
-uvicorn backend.api.main:app --reload
-
-# Or run the CLI demo
-python -m backend.orchestrator.cli
+python -m uvicorn backend.api.main:app --reload --port 8000
 ```
 
-### Frontend Setup (Next.js Dashboard)
+#### Frontend Setup
 
 ```bash
 cd frontend
@@ -68,25 +87,11 @@ cd frontend
 # Install dependencies
 npm install
 
-# Set up environment
-cp .env.local.example .env.local
-# Add your Mapbox token to .env.local
-
 # Run development server
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the dashboard.
-
-### Docker (Full Stack)
-
-```bash
-# Run both backend and frontend
-docker-compose up
-
-# Backend: http://localhost:8000
-# Frontend: http://localhost:3000
-```
 
 ## Architecture
 
@@ -125,7 +130,7 @@ docker-compose up
 ## Project Structure
 
 ```
-disaster-relief-optimizer/
+UGAhacks11/
 ├── backend/
 │   ├── agents/               # Multi-agent implementations
 │   │   ├── base_agent.py     # Abstract base class
@@ -136,21 +141,25 @@ disaster-relief-optimizer/
 │   ├── orchestrator/         # Claude-powered coordinator
 │   ├── routing/              # Graph algorithms
 │   ├── data/                 # Local data storage
-│   ├── database/             # SQLite + SpatiaLite
-│   └── api/                  # FastAPI endpoints
+│   ├── database/             # SQLite schema
+│   ├── api/                  # FastAPI endpoints
+│   └── Dockerfile
 ├── frontend/                 # Next.js dashboard
 │   ├── src/
 │   │   ├── app/              # Next.js app router
 │   │   ├── components/       # React components
-│   │   ├── lib/              # API client & utilities
 │   │   ├── hooks/            # Custom React hooks
 │   │   └── types/            # TypeScript definitions
 │   ├── package.json
 │   └── Dockerfile
-├── scripts/                  # Data download utilities
-├── tests/
+├── scripts/                  # Data & setup utilities
+│   ├── init_database.py      # Create SQLite tables
+│   ├── load_events.py        # Load sample disaster data
+│   ├── download_osm.py       # Download road network
+│   └── download_satellite.py # Download satellite imagery
 ├── docker-compose.yml
-└── requirements.txt
+├── requirements.txt
+└── .env.example
 ```
 
 ## Agents
@@ -173,14 +182,32 @@ disaster-relief-optimizer/
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `ANTHROPIC_API_KEY` | Claude API key for orchestrator |
-| `DATABASE_URL` | SQLite database path |
-| `COPERNICUS_USER` | Copernicus Open Access Hub username |
-| `COPERNICUS_PASSWORD` | Copernicus Open Access Hub password |
-| `MAPBOX_TOKEN` | Mapbox access token for frontend map |
-| `NEXT_PUBLIC_API_URL` | Backend API URL (default: http://localhost:8000) |
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `ANTHROPIC_API_KEY` | Claude API key for orchestrator | Yes |
+| `DATABASE_URL` | SQLite database path (default: auto) | No |
+| `NEXT_PUBLIC_API_URL` | Backend API URL (default: http://localhost:8000) | No |
+| `COPERNICUS_USER` | Copernicus Hub username (for satellite data) | No |
+| `COPERNICUS_PASSWORD` | Copernicus Hub password | No |
+
+## Troubleshooting
+
+### Database Issues
+```bash
+# Reset the database
+rm backend/data/disaster_relief.db
+python scripts/init_database.py
+python scripts/load_events.py
+```
+
+### Docker Permission Issues
+```bash
+# If database was created by Docker with root permissions
+sudo rm backend/data/disaster_relief.db
+```
+
+### Missing System Libraries (GDAL errors)
+See the System Dependencies section above for your OS.
 
 ## License
 

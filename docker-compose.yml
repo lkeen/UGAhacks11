@@ -8,11 +8,17 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/data:/app/backend/data
+      - ./backend/data/events:/app/backend/data/events:ro
+      - ./backend/data/shelters:/app/backend/data/shelters:ro
+      - ./backend/data/osm:/app/backend/data/osm
+      - ./backend/data/satellite:/app/backend/data/satellite
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - DATABASE_URL=sqlite:///backend/data/disaster_relief.db
-    command: uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload
+    command: >
+      sh -c "python scripts/init_database.py &&
+             python scripts/load_events.py &&
+             uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload"
 
   frontend:
     build:
