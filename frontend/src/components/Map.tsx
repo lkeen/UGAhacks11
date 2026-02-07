@@ -1,13 +1,15 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Shelter, Event, Route, MapViewState } from '@/types';
 
-// TODO: Move to environment variable
-// For now, using a placeholder - users need to add their own Mapbox token
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+// Free OpenStreetMap-based tile styles (swap as needed):
+// const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';      // Light
+// const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';   // Dark
+// const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';       // Colorful
+const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
 
 interface MapProps {
   viewState: MapViewState;
@@ -29,31 +31,23 @@ export function Map({
   onShelterClick,
 }: MapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
+  const map = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const markersRef = useRef<maplibregl.Marker[]>([]);
 
   // Initialize map
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
-    // Check for Mapbox token
-    if (!MAPBOX_TOKEN) {
-      console.warn('Mapbox token not configured. Map functionality will be limited.');
-      return;
-    }
-
-    mapboxgl.accessToken = MAPBOX_TOKEN;
-
-    map.current = new mapboxgl.Map({
+    map.current = new maplibregl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
+      style: MAP_STYLE,
       center: [viewState.longitude, viewState.latitude],
       zoom: viewState.zoom,
     });
 
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-    map.current.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
+    map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
+    map.current.addControl(new maplibregl.ScaleControl(), 'bottom-left');
 
     map.current.on('load', () => {
       setMapLoaded(true);
@@ -110,10 +104,10 @@ export function Map({
       el.className = 'shelter-marker';
       el.innerHTML = getShelterMarkerHTML(shelter, shelter.id === selectedShelter?.id);
 
-      const marker = new mapboxgl.Marker({ element: el })
+      const marker = new maplibregl.Marker({ element: el })
         .setLngLat([shelter.location_lon, shelter.location_lat])
         .setPopup(
-          new mapboxgl.Popup({ offset: 25 }).setHTML(getShelterPopupHTML(shelter))
+          new maplibregl.Popup({ offset: 25 }).setHTML(getShelterPopupHTML(shelter))
         )
         .addTo(map.current!);
 
@@ -187,44 +181,6 @@ export function Map({
   return (
     <div className="relative w-full h-full">
       <div ref={mapContainer} className="w-full h-full" />
-
-      {/* Fallback when no Mapbox token */}
-      {!MAPBOX_TOKEN && (
-        <div className="absolute inset-0 bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-          <div className="text-center p-8 bg-white dark:bg-gray-700 rounded-lg shadow-lg max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              Map Not Configured
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-              To display the map, add your Mapbox access token to the environment
-              variable <code className="bg-gray-100 dark:bg-gray-600 px-1 rounded">NEXT_PUBLIC_MAPBOX_TOKEN</code>
-            </p>
-            <p className="text-xs text-gray-500">
-              Get a free token at{' '}
-              <a
-                href="https://mapbox.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary-600 hover:underline"
-              >
-                mapbox.com
-              </a>
-            </p>
-
-            {/* Static map placeholder showing Western NC */}
-            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-600 rounded text-left">
-              <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Demo Area: Western North Carolina
-              </p>
-              <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                <li>Center: Asheville ({viewState.latitude.toFixed(4)}, {viewState.longitude.toFixed(4)})</li>
-                <li>Shelters: {shelters.length}</li>
-                <li>Active Routes: {routes.length}</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Map legend */}
       <div className="absolute bottom-8 left-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 text-xs">
