@@ -23,15 +23,23 @@ class Route:
 
     def to_dict(self) -> dict:
         """Convert route to dictionary."""
+        import math
+
+        def sanitize_float(val: float) -> float | None:
+            """Replace inf/nan with None for JSON compatibility."""
+            if isinstance(val, float) and (math.isinf(val) or math.isnan(val)):
+                return None
+            return val
+
         return {
             "id": self.id,
             "origin": self.origin.to_dict(),
             "destination": self.destination.to_dict(),
             "waypoints": [{"lon": w[0], "lat": w[1]} for w in self.waypoints],
-            "distance_m": self.distance_m,
-            "estimated_duration_min": self.estimated_duration_min,
+            "distance_m": sanitize_float(self.distance_m),
+            "estimated_duration_min": sanitize_float(self.estimated_duration_min),
             "hazards_avoided": self.hazards_avoided,
-            "confidence": self.confidence,
+            "confidence": sanitize_float(self.confidence),
             "reasoning": self.reasoning,
             "created_at": self.created_at.isoformat(),
         }

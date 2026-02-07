@@ -131,7 +131,7 @@ export function AgentLogs({ logs, reports }: AgentLogsProps) {
                 <span
                   className={clsx(
                     'w-2 h-2 rounded-full ml-auto',
-                    isActive ? 'bg-success-500 status-pulse' : 'bg-gray-300'
+                    isActive ? 'bg-success-500 status-pulse' : 'bg-danger-500'
                   )}
                 />
               </div>

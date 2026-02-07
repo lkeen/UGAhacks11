@@ -106,7 +106,23 @@ class AgentReport:
 
     def to_dict(self) -> dict:
         """Convert report to dictionary for storage/serialization."""
-        return {
+        import math
+
+        def sanitize_floats(obj):
+            """Replace inf/nan with JSON-safe values."""
+            if isinstance(obj, float):
+                if math.isinf(obj):
+                    return None  # or "infinite" if you want a string
+                if math.isnan(obj):
+                    return None
+                return obj
+            if isinstance(obj, dict):
+                return {k: sanitize_floats(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [sanitize_floats(v) for v in obj]
+            return obj
+
+        return sanitize_floats({
             "id": self.id,
             "timestamp": self.timestamp.isoformat(),
             "event_type": self.event_type.value,
@@ -118,7 +134,7 @@ class AgentReport:
             "corroborations": self.corroborations,
             "agent_name": self.agent_name,
             "metadata": self.metadata,
-        }
+        })
 
     @classmethod
     def from_dict(cls, data: dict) -> "AgentReport":

@@ -80,12 +80,20 @@ class RoadNetworkAgent(BaseAgent):
         Returns:
             List of current road status reports
         """
+        # Clear previous reports to avoid duplicates
+        self._reports = []
+
         # Process any pending updates
         self._process_pending_updates()
 
         # Return current road status as reports
         reports = []
+        seen_ids = set()
         for edge_id, status in self._road_status.items():
+            # Skip duplicates
+            if edge_id in seen_ids:
+                continue
+            seen_ids.add(edge_id)
             if status.get("last_update"):
                 location = status.get("location", Location(0, 0))
                 if bbox.contains(location):
@@ -138,7 +146,8 @@ class RoadNetworkAgent(BaseAgent):
             self._pending_updates.append(report)
 
     def receive_updates(self, reports: list[AgentReport]) -> None:
-        """Receive multiple updates at once."""
+        """Receive multiple updates at once. Clears previous pending updates first."""
+        self._pending_updates = []
         for report in reports:
             self.receive_update(report)
 
@@ -177,66 +186,69 @@ class RoadNetworkAgent(BaseAgent):
         """
         Resolve conflicting reports for a single location.
 
-        Uses confidence-weighted voting.
+        Uses timestamp-based priority: newer reports override older ones.
+        Road_clear events remove previous hazards.
         """
         if not reports:
             return
 
-        # Separate into "blocked" and "clear" reports
-        blocked_confidence = 0.0
-        clear_confidence = 0.0
-        blocked_reports = []
-        clear_reports = []
+        # Sort reports by timestamp (newest first)
+        sorted_reports = sorted(reports, key=lambda r: r.timestamp, reverse=True)
+        latest_report = sorted_reports[0]
 
-        for report in reports:
-            if report.event_type == EventType.ROAD_CLEAR:
-                clear_confidence += report.confidence
-                clear_reports.append(report)
-            else:
-                blocked_confidence += report.confidence
-                blocked_reports.append(report)
-
-        # Determine winning status
-        if blocked_confidence > clear_confidence:
-            winning_reports = blocked_reports
-            status = "blocked"
-            # Get worst event type
-            worst_event = max(
-                (r.event_type for r in blocked_reports),
-                key=lambda e: self.EVENT_WEIGHT_IMPACT.get(e, 1.0),
-            )
-            weight_multiplier = self.EVENT_WEIGHT_IMPACT.get(worst_event, 1.0)
-        else:
-            winning_reports = clear_reports
+        # If the most recent report is a road_clear, the road is open
+        if latest_report.event_type == EventType.ROAD_CLEAR:
             status = "clear"
-            worst_event = EventType.ROAD_CLEAR
             weight_multiplier = 1.0
+            event_type = EventType.ROAD_CLEAR
+            confidence = latest_report.confidence
 
-        # Calculate combined confidence
-        combined_confidence = sum(r.confidence for r in winning_reports) / len(
-            winning_reports
-        )
+            # Remove this location from road status if it was previously blocked
+            if loc_key in self._road_status:
+                del self._road_status[loc_key]
 
-        # Get most recent update
-        latest_report = max(reports, key=lambda r: r.timestamp)
+            # Reset road network if manager available
+            if self.road_network_manager:
+                self.road_network_manager.update_edge_weight_by_location(
+                    latest_report.location,
+                    1.0,  # Normal weight
+                    confidence,
+                )
+            return
+
+        # Otherwise, use the most recent hazard report
+        hazard_reports = [r for r in sorted_reports if r.event_type != EventType.ROAD_CLEAR]
+
+        if not hazard_reports:
+            return
+
+        latest_hazard = hazard_reports[0]
+        weight_multiplier = self.EVENT_WEIGHT_IMPACT.get(latest_hazard.event_type, 1.0)
+
+        if weight_multiplier == float("inf"):
+            status = "blocked"
+        elif weight_multiplier > 1.0:
+            status = "damaged"
+        else:
+            status = "clear"
 
         # Update road status
         self._road_status[loc_key] = {
             "status": status,
-            "event_type": worst_event,
+            "event_type": latest_hazard.event_type,
             "weight_multiplier": weight_multiplier,
-            "confidence": combined_confidence,
-            "report_count": len(winning_reports),
-            "last_update": latest_report.timestamp,
-            "location": latest_report.location,
+            "confidence": latest_hazard.confidence,
+            "report_count": len(hazard_reports),
+            "last_update": latest_hazard.timestamp,
+            "location": latest_hazard.location,
         }
 
         # Update road network manager if available
         if self.road_network_manager:
             self.road_network_manager.update_edge_weight_by_location(
-                latest_report.location,
+                latest_hazard.location,
                 weight_multiplier,
-                combined_confidence,
+                latest_hazard.confidence,
             )
 
     def get_road_status(self, location: Location) -> dict | None:

@@ -85,7 +85,10 @@ class OfficialDataAgent(BaseAgent):
         Returns:
             List of structured reports from official sources
         """
+        # Clear previous reports to avoid duplicates
+        self._reports = []
         reports = []
+        seen_ids = set()
 
         # Load data if path set and not loaded
         if self.data_path and not self._official_reports:
@@ -93,6 +96,11 @@ class OfficialDataAgent(BaseAgent):
 
         # Process official reports
         for report_data in self._official_reports:
+            # Skip duplicates
+            if report_data.get("id") in seen_ids:
+                continue
+            seen_ids.add(report_data.get("id"))
+
             report = self._process_official_report(report_data, scenario_time, bbox)
             if report:
                 reports.append(report)
@@ -100,6 +108,12 @@ class OfficialDataAgent(BaseAgent):
 
         # Process shelter information
         for shelter in self._shelters:
+            # Skip duplicates
+            shelter_id = shelter.get("id", shelter.get("name"))
+            if shelter_id in seen_ids:
+                continue
+            seen_ids.add(shelter_id)
+
             report = self._process_shelter(shelter, scenario_time, bbox)
             if report:
                 reports.append(report)
@@ -135,11 +149,7 @@ class OfficialDataAgent(BaseAgent):
         # Map source string to DataSource enum
         source_str = report_data.get("source", "fema").lower()
 
-        # Only process official sources
-        official_sources = {"fema", "ncdot", "usgs", "local_emergency", "news"}
-        if source_str not in official_sources:
-            return None
-
+        # Map source - allow all sources from the timeline
         source = self._map_source(source_str)
 
         # Map report type to event type
@@ -247,20 +257,26 @@ class OfficialDataAgent(BaseAgent):
             "usgs": DataSource.USGS,
             "local_emergency": DataSource.LOCAL_EMERGENCY,
             "news": DataSource.NEWS,
+            "twitter": DataSource.TWITTER,
+            "citizen_report": DataSource.CITIZEN_REPORT,
         }
-        return mapping.get(source_str.lower(), DataSource.FEMA)
+        return mapping.get(source_str.lower(), DataSource.CITIZEN_REPORT)
 
     def _map_report_type(self, report_type: str) -> EventType | None:
         """Map official report type to event type."""
         mapping = {
             "road_closure": EventType.ROAD_CLOSURE,
             "road_damage": EventType.ROAD_DAMAGE,
+            "road_clear": EventType.ROAD_CLEAR,
             "bridge_closure": EventType.BRIDGE_COLLAPSE,
+            "bridge_collapse": EventType.BRIDGE_COLLAPSE,
             "flooding": EventType.FLOODING,
             "power_outage": EventType.POWER_OUTAGE,
             "shelter_opening": EventType.SHELTER_OPENING,
             "shelter_closing": EventType.SHELTER_CLOSING,
             "infrastructure_damage": EventType.INFRASTRUCTURE_DAMAGE,
+            "rescue_needed": EventType.RESCUE_NEEDED,
+            "supplies_needed": EventType.SUPPLIES_NEEDED,
         }
         return mapping.get(report_type.lower())
 

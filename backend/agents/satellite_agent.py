@@ -83,13 +83,20 @@ class SatelliteAgent(BaseAgent):
         Returns:
             List of structured reports from satellite analysis
         """
+        # Clear previous reports to avoid duplicates
+        self._reports = []
         reports = []
+        seen_ids = set()
 
         # Load detections if path set and not loaded
         if self.detections_path and not self._detections:
             self.load_detections(self.detections_path)
 
         for detection in self._detections:
+            # Skip duplicates
+            if detection["id"] in seen_ids:
+                continue
+            seen_ids.add(detection["id"])
             # Parse detection timestamp (when imagery was captured)
             detection_time = datetime.fromisoformat(
                 detection["timestamp"].replace("Z", "+00:00")

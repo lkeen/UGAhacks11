@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { Shelter, Event, Route, MapViewState, EventType } from '@/types';
 
 // Free OpenStreetMap-based tile styles (swap as needed):
@@ -11,18 +12,42 @@ import type { Shelter, Event, Route, MapViewState, EventType } from '@/types';
 // const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';       // Colorful
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
 
-// Event type colors
-const EVENT_COLORS: Record<string, string> = {
-  road_closure: '#dc2626',      // red-600
-  flooding: '#2563eb',          // blue-600
-  bridge_collapse: '#991b1b',   // red-800
-  shelter_opening: '#16a34a',   // green-600
-  shelter_closing: '#ca8a04',   // yellow-600
-  supply_request: '#9333ea',    // purple-600
-  power_outage: '#4b5563',      // gray-600
+// Event type colors - comprehensive list
+export const EVENT_COLORS: Record<string, string> = {
+  road_closure: '#dc2626',        // red-600
+  road_damage: '#f97316',         // orange-500
+  flooding: '#2563eb',            // blue-600
+  bridge_collapse: '#991b1b',     // red-800
+  shelter_opening: '#16a34a',     // green-600
+  shelter_closing: '#ca8a04',     // yellow-600
+  supply_request: '#9333ea',      // purple-600
+  supplies_needed: '#a855f7',     // purple-500
+  power_outage: '#6b7280',        // gray-500
   infrastructure_damage: '#ea580c', // orange-600
-  rescue_needed: '#e11d48',     // rose-600
-  road_clear: '#22c55e',        // green-500
+  rescue_needed: '#e11d48',       // rose-600
+  road_clear: '#22c55e',          // green-500
+  evacuation: '#dc2626',          // red-600
+  medical_emergency: '#ec4899',   // pink-500
+  water_contamination: '#0891b2', // cyan-600
+};
+
+// Event type labels
+export const EVENT_LABELS: Record<string, string> = {
+  road_closure: 'Road Closure',
+  road_damage: 'Road Damage',
+  flooding: 'Flooding',
+  bridge_collapse: 'Bridge Collapse',
+  shelter_opening: 'Shelter Opening',
+  shelter_closing: 'Shelter Closing',
+  supply_request: 'Supply Request',
+  supplies_needed: 'Supplies Needed',
+  power_outage: 'Power Outage',
+  infrastructure_damage: 'Infrastructure Damage',
+  rescue_needed: 'Rescue Needed',
+  road_clear: 'Road Clear',
+  evacuation: 'Evacuation',
+  medical_emergency: 'Medical Emergency',
+  water_contamination: 'Water Contamination',
 };
 
 interface MapProps {
@@ -34,6 +59,7 @@ interface MapProps {
   selectedShelter: Shelter | null;
   onShelterClick: (shelter: Shelter) => void;
   highlightedEventType: EventType | null;
+  highlightedEventId: number | string | null;
 }
 
 export function Map({
@@ -45,12 +71,17 @@ export function Map({
   selectedShelter,
   onShelterClick,
   highlightedEventType,
+  highlightedEventId,
 }: MapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [legendExpanded, setLegendExpanded] = useState(true);
   const shelterMarkersRef = useRef<maplibregl.Marker[]>([]);
   const eventMarkersRef = useRef<maplibregl.Marker[]>([]);
+
+  // Get unique event types from current events
+  const activeEventTypes = Array.from(new Set(events.map(e => e.event_type)));
 
   // Initialize map
   useEffect(() => {
@@ -149,10 +180,15 @@ export function Map({
 
       if (lat === undefined || lon === undefined) return;
 
-      const isHighlighted = highlightedEventType === event.event_type;
+      // Check if this specific event is highlighted
+      const isHighlightedById = highlightedEventId !== null && event.id === highlightedEventId;
+      // Check if this event type is highlighted (but not a specific event)
+      const isHighlightedByType = highlightedEventId === null && highlightedEventType === event.event_type;
+      const isHighlighted = isHighlightedById || isHighlightedByType;
+
       const el = document.createElement('div');
       el.className = 'event-marker';
-      el.innerHTML = getEventMarkerHTML(event, isHighlighted);
+      el.innerHTML = getEventMarkerHTML(event, isHighlighted, isHighlightedById);
 
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([lon, lat])
@@ -163,7 +199,7 @@ export function Map({
 
       eventMarkersRef.current.push(marker);
     });
-  }, [events, mapLoaded, highlightedEventType]);
+  }, [events, mapLoaded, highlightedEventType, highlightedEventId]);
 
   // Add route lines
   useEffect(() => {
@@ -221,31 +257,72 @@ export function Map({
     <div className="relative w-full h-full">
       <div ref={mapContainer} className="w-full h-full" />
 
-      {/* Map legend */}
-      <div className="absolute bottom-8 left-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 text-xs">
-        <h4 className="font-medium text-gray-900 dark:text-white mb-2">Legend</h4>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-success-500" />
-            <span className="text-gray-600 dark:text-gray-400">Open Shelter</span>
+      {/* Map legend - minimizable */}
+      <div className="absolute bottom-8 left-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg text-xs overflow-hidden">
+        {/* Legend header */}
+        <button
+          onClick={() => setLegendExpanded(!legendExpanded)}
+          className="w-full px-3 py-2 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700"
+        >
+          <span className="font-medium text-gray-900 dark:text-white">Legend</span>
+          {legendExpanded ? (
+            <ChevronDown className="w-4 h-4 text-gray-500" />
+          ) : (
+            <ChevronUp className="w-4 h-4 text-gray-500" />
+          )}
+        </button>
+
+        {/* Legend content */}
+        {legendExpanded && (
+          <div className="px-3 pb-3 space-y-2">
+            {/* Shelters section */}
+            <div>
+              <p className="text-gray-500 text-xs font-medium mb-1">Shelters</p>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-green-500" />
+                  <span className="text-gray-600 dark:text-gray-400">Open</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-yellow-500" />
+                  <span className="text-gray-600 dark:text-gray-400">Full</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-gray-400" />
+                  <span className="text-gray-600 dark:text-gray-400">Closed</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Events section - dynamic based on active events */}
+            {activeEventTypes.length > 0 && (
+              <div>
+                <p className="text-gray-500 text-xs font-medium mb-1">Events</p>
+                <div className="space-y-1">
+                  {activeEventTypes.map((type) => (
+                    <div key={type} className="flex items-center gap-2">
+                      <span
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: EVENT_COLORS[type] || '#6b7280' }}
+                      />
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {EVENT_LABELS[type] || type.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Routes */}
+            {routes.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-0.5 bg-blue-500" />
+                <span className="text-gray-600 dark:text-gray-400">Delivery Route</span>
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-warning-500" />
-            <span className="text-gray-600 dark:text-gray-400">Full Shelter</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-danger-500" />
-            <span className="text-gray-600 dark:text-gray-400">Road Closure</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-blue-500" />
-            <span className="text-gray-600 dark:text-gray-400">Flooding</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-6 h-0.5 bg-primary-500" />
-            <span className="text-gray-600 dark:text-gray-400">Delivery Route</span>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -313,12 +390,13 @@ function getShelterPopupHTML(shelter: Shelter): string {
   `;
 }
 
-function getEventMarkerHTML(event: Event, isHighlighted: boolean): string {
+function getEventMarkerHTML(event: Event, isHighlighted: boolean, isSpecificHighlight: boolean): string {
   const color = EVENT_COLORS[event.event_type] || '#6b7280';
-  const size = isHighlighted ? 24 : 12;
+  const size = isHighlighted ? (isSpecificHighlight ? 28 : 20) : 12;
   const opacity = isHighlighted ? 1 : 0.8;
-  const border = isHighlighted ? '3px solid white' : 'none';
-  const shadow = isHighlighted ? '0 0 10px rgba(0,0,0,0.5)' : '0 2px 4px rgba(0,0,0,0.3)';
+  const border = isSpecificHighlight ? '4px solid white' : (isHighlighted ? '2px solid white' : 'none');
+  const shadow = isHighlighted ? '0 0 12px rgba(0,0,0,0.5)' : '0 2px 4px rgba(0,0,0,0.3)';
+  const zIndex = isSpecificHighlight ? 1000 : (isHighlighted ? 100 : 1);
 
   return `
     <div style="
@@ -331,12 +409,13 @@ function getEventMarkerHTML(event: Event, isHighlighted: boolean): string {
       border-radius: 50%;
       cursor: pointer;
       transition: all 0.2s ease;
+      z-index: ${zIndex};
     "></div>
   `;
 }
 
 function getEventPopupHTML(event: Event): string {
-  const typeLabel = event.event_type.replace(/_/g, ' ');
+  const typeLabel = (EVENT_LABELS[event.event_type] || event.event_type).replace(/_/g, ' ');
   const color = EVENT_COLORS[event.event_type] || '#6b7280';
 
   return `

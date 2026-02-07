@@ -106,13 +106,20 @@ class SocialMediaAgent(BaseAgent):
         Returns:
             List of structured reports extracted from social media
         """
+        # Clear previous reports to avoid duplicates
+        self._reports = []
         reports = []
+        seen_ids = set()
 
         # Load data if path is set and not loaded
         if self.data_path and not self._mock_posts:
             self.load_mock_data(self.data_path)
 
         for post in self._mock_posts:
+            # Skip duplicates
+            if post["id"] in seen_ids:
+                continue
+            seen_ids.add(post["id"])
             # Parse post timestamp
             post_time = datetime.fromisoformat(post["timestamp"].replace("Z", "+00:00"))
 

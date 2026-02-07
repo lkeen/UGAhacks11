@@ -63,6 +63,11 @@ class ScenarioTimeRequest(BaseModel):
     time: str  # ISO format
 
 
+class AdvanceTimeRequest(BaseModel):
+    """Request model for advancing scenario time."""
+    hours: float = 1.0
+
+
 # Endpoints
 @app.get("/")
 async def root():
@@ -261,12 +266,12 @@ async def set_scenario_time(request: ScenarioTimeRequest):
 
 
 @app.post("/scenario/advance")
-async def advance_scenario_time(hours: float = 1.0):
+async def advance_scenario_time(request: AdvanceTimeRequest):
     """Advance scenario time by specified hours."""
     orchestrator = get_orchestrator()
-    orchestrator.advance_scenario_time(hours)
+    orchestrator.advance_scenario_time(request.hours)
     return {
-        "message": f"Advanced scenario by {hours} hours",
+        "message": f"Advanced scenario by {request.hours} hours",
         "scenario_time": orchestrator.scenario_time.isoformat(),
     }
 

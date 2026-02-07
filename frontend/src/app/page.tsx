@@ -48,6 +48,7 @@ export default function Home() {
   const [agentLogs, setAgentLogs] = useState<AgentLogEntry[]>([]);
   const [selectedShelter, setSelectedShelter] = useState<Shelter | null>(null);
   const [highlightedEventType, setHighlightedEventType] = useState<EventType | null>(null);
+  const [highlightedEventId, setHighlightedEventId] = useState<number | string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -164,6 +165,24 @@ export default function Home() {
     }
   };
 
+  const handleEventSelect = (event: Event | null) => {
+    if (event) {
+      // Select event and zoom to its location
+      setHighlightedEventId(event.id);
+      if (event.location_lat !== undefined && event.location_lon !== undefined) {
+        setMapView({
+          longitude: event.location_lon,
+          latitude: event.location_lat,
+          zoom: 14,
+        });
+      }
+    } else {
+      // Deselect event and zoom back out
+      setHighlightedEventId(null);
+      setMapView(DEFAULT_VIEW);
+    }
+  };
+
   // =========================================================================
   // Helpers
   // =========================================================================
@@ -219,6 +238,8 @@ export default function Home() {
           onShelterSelect={handleShelterSelect}
           highlightedEventType={highlightedEventType}
           onEventTypeSelect={setHighlightedEventType}
+          highlightedEventId={highlightedEventId}
+          onEventSelect={handleEventSelect}
         />
 
         {/* Map area */}
@@ -232,6 +253,7 @@ export default function Home() {
             selectedShelter={selectedShelter}
             onShelterClick={handleShelterSelect}
             highlightedEventType={highlightedEventType}
+            highlightedEventId={highlightedEventId}
           />
 
           {/* Query panel overlay */}

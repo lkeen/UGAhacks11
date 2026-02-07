@@ -19,6 +19,7 @@ import {
   PawPrint,
   Accessibility,
   X,
+  Target,
 } from 'lucide-react';
 import type { Shelter, Event, EventType } from '@/types';
 import clsx from 'clsx';
@@ -31,20 +32,27 @@ interface SidebarProps {
   onShelterSelect: (shelter: Shelter | null) => void;
   highlightedEventType: EventType | null;
   onEventTypeSelect: (type: EventType | null) => void;
+  highlightedEventId: number | string | null;
+  onEventSelect: (event: Event | null) => void;
 }
 
-// Event type colors - using hex for inline styles
-const EVENT_TYPE_CONFIG: Record<EventType, { color: string; hex: string; label: string }> = {
+// Event type colors - comprehensive list matching Map.tsx
+const EVENT_TYPE_CONFIG: Record<string, { color: string; hex: string; label: string }> = {
   road_closure: { color: 'text-red-600', hex: '#dc2626', label: 'Road Closures' },
+  road_damage: { color: 'text-orange-500', hex: '#f97316', label: 'Road Damage' },
   flooding: { color: 'text-blue-600', hex: '#2563eb', label: 'Flooding' },
   bridge_collapse: { color: 'text-red-800', hex: '#991b1b', label: 'Bridge Collapse' },
   shelter_opening: { color: 'text-green-600', hex: '#16a34a', label: 'Shelter Opening' },
   shelter_closing: { color: 'text-yellow-600', hex: '#ca8a04', label: 'Shelter Closing' },
   supply_request: { color: 'text-purple-600', hex: '#9333ea', label: 'Supply Request' },
-  power_outage: { color: 'text-gray-600', hex: '#4b5563', label: 'Power Outage' },
+  supplies_needed: { color: 'text-purple-500', hex: '#a855f7', label: 'Supplies Needed' },
+  power_outage: { color: 'text-gray-500', hex: '#6b7280', label: 'Power Outage' },
   infrastructure_damage: { color: 'text-orange-600', hex: '#ea580c', label: 'Infrastructure Damage' },
   rescue_needed: { color: 'text-rose-600', hex: '#e11d48', label: 'Rescue Needed' },
   road_clear: { color: 'text-green-500', hex: '#22c55e', label: 'Road Clear' },
+  evacuation: { color: 'text-red-600', hex: '#dc2626', label: 'Evacuation' },
+  medical_emergency: { color: 'text-pink-500', hex: '#ec4899', label: 'Medical Emergency' },
+  water_contamination: { color: 'text-cyan-600', hex: '#0891b2', label: 'Water Contamination' },
 };
 
 export function Sidebar({
@@ -54,10 +62,12 @@ export function Sidebar({
   onShelterSelect,
   highlightedEventType,
   onEventTypeSelect,
+  highlightedEventId,
+  onEventSelect,
 }: SidebarProps) {
   const [sheltersExpanded, setSheltersExpanded] = useState(true);
   const [eventsExpanded, setEventsExpanded] = useState(true);
-  const [expandedEventTypes, setExpandedEventTypes] = useState<Set<EventType>>(new Set());
+  const [expandedEventTypes, setExpandedEventTypes] = useState<Set<string>>(new Set());
   const [filterOpen, setFilterOpen] = useState(false);
 
   // Group events by type for display
@@ -66,9 +76,9 @@ export function Sidebar({
     if (!acc[type]) acc[type] = [];
     acc[type].push(event);
     return acc;
-  }, {} as Record<EventType, Event[]>);
+  }, {} as Record<string, Event[]>);
 
-  const toggleEventType = (type: EventType) => {
+  const toggleEventType = (type: string) => {
     const newExpanded = new Set(expandedEventTypes);
     if (newExpanded.has(type)) {
       newExpanded.delete(type);
@@ -76,12 +86,27 @@ export function Sidebar({
       if (highlightedEventType === type) {
         onEventTypeSelect(null);
       }
+      onEventSelect(null);
     } else {
       newExpanded.add(type);
       // Highlight this type on the map
-      onEventTypeSelect(type);
+      onEventTypeSelect(type as EventType);
+      onEventSelect(null);
     }
     setExpandedEventTypes(newExpanded);
+  };
+
+  const handleEventClick = (event: Event) => {
+    if (highlightedEventId === event.id) {
+      // Deselect if already selected - restore type highlighting
+      onEventSelect(null);
+      onEventTypeSelect(event.event_type as EventType);
+    } else {
+      // Select this specific event
+      onEventSelect(event);
+      // Clear type-level highlighting
+      onEventTypeSelect(null);
+    }
   };
 
   const getShelterStatusIcon = (status: string) => {
@@ -111,6 +136,10 @@ export function Sidebar({
     } catch {
       return '';
     }
+  };
+
+  const getEventConfig = (type: string) => {
+    return EVENT_TYPE_CONFIG[type] || { color: 'text-gray-600', hex: '#6b7280', label: type.replace(/_/g, ' ') };
   };
 
   // If a shelter is selected, show the detail view
@@ -425,15 +454,15 @@ export function Sidebar({
           {eventsExpanded && (
             <div className="pb-2">
               {Object.entries(eventsByType).map(([type, typeEvents]) => {
-                const config = EVENT_TYPE_CONFIG[type as EventType];
-                const isExpanded = expandedEventTypes.has(type as EventType);
+                const config = getEventConfig(type);
+                const isExpanded = expandedEventTypes.has(type);
                 const isHighlighted = highlightedEventType === type;
 
                 return (
                   <div key={type} className="border-b border-gray-100 dark:border-gray-700 last:border-0">
                     {/* Category header - clickable */}
                     <button
-                      onClick={() => toggleEventType(type as EventType)}
+                      onClick={() => toggleEventType(type)}
                       className={clsx(
                         'w-full px-4 py-2 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors',
                         isHighlighted && 'bg-gray-100 dark:bg-gray-700'
@@ -442,10 +471,10 @@ export function Sidebar({
                       <div className="flex items-center gap-2">
                         <span
                           className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: config?.hex || '#6b7280' }}
+                          style={{ backgroundColor: config.hex }}
                         />
-                        <span className={clsx('text-sm font-medium', config?.color || 'text-gray-600')}>
-                          {config?.label || type}
+                        <span className={clsx('text-sm font-medium', config.color)}>
+                          {config.label}
                         </span>
                         <span className="text-xs text-gray-400">({typeEvents.length})</span>
                       </div>
@@ -459,27 +488,41 @@ export function Sidebar({
                     {/* Expanded event list */}
                     {isExpanded && (
                       <div className="px-4 pb-2 space-y-2">
-                        {typeEvents.slice(0, 10).map((event, idx) => (
-                          <div
-                            key={event.id || idx}
-                            className="p-2 rounded-lg text-xs bg-gray-50 dark:bg-gray-700"
-                            style={{ borderLeft: `3px solid ${config?.hex || '#6b7280'}` }}
-                          >
-                            <p className="text-gray-700 dark:text-gray-300 line-clamp-2">
-                              {event.description || 'No description'}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1 text-gray-500">
-                              <Clock className="w-3 h-3" />
-                              <span>{formatEventTime(event.timestamp)}</span>
-                              {event.source && (
-                                <>
-                                  <span>•</span>
-                                  <span className="capitalize">{event.source}</span>
-                                </>
+                        {typeEvents.slice(0, 10).map((event, idx) => {
+                          const isSelected = highlightedEventId === event.id;
+                          return (
+                            <button
+                              key={event.id || idx}
+                              onClick={() => handleEventClick(event)}
+                              className={clsx(
+                                'w-full text-left p-2 rounded-lg text-xs transition-all',
+                                isSelected
+                                  ? 'bg-primary-100 dark:bg-primary-900/30 ring-2 ring-primary-500'
+                                  : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
                               )}
-                            </div>
-                          </div>
-                        ))}
+                              style={{ borderLeft: `3px solid ${config.hex}` }}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-gray-700 dark:text-gray-300 line-clamp-2 flex-1">
+                                  {event.description || 'No description'}
+                                </p>
+                                {isSelected && (
+                                  <Target className="w-4 h-4 text-primary-500 flex-shrink-0" />
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 text-gray-500">
+                                <Clock className="w-3 h-3" />
+                                <span>{formatEventTime(event.timestamp)}</span>
+                                {event.source && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="capitalize">{event.source}</span>
+                                  </>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
                         {typeEvents.length > 10 && (
                           <p className="text-xs text-gray-400 text-center">
                             +{typeEvents.length - 10} more events
