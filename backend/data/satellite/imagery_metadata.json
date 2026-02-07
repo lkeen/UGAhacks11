@@ -1,0 +1,116 @@
+{
+  "description": "Mock satellite imagery metadata for Hurricane Helene analysis",
+  "note": "Actual GeoTIFF files not included. Use Copernicus hub for real data.",
+  "imagery": [
+    {
+      "id": "S2A_MSIL2A_20240926T160021_N0511_R097_T17SPV_20240926T213442",
+      "date": "2024-09-26",
+      "type": "pre_disaster",
+      "platform": "Sentinel-2A",
+      "product_type": "S2MSI2A",
+      "cloud_cover_percent": 5.2,
+      "tile_id": "T17SPV",
+      "processing_level": "Level-2A",
+      "bands": [
+        "B02",
+        "B03",
+        "B04",
+        "B08",
+        "B11",
+        "B12"
+      ],
+      "resolution_m": 10,
+      "footprint": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -83.5,
+              35.0
+            ],
+            [
+              -81.5,
+              35.0
+            ],
+            [
+              -81.5,
+              36.5
+            ],
+            [
+              -83.5,
+              36.5
+            ],
+            [
+              -83.5,
+              35.0
+            ]
+          ]
+        ]
+      },
+      "download_url": "https://scihub.copernicus.eu/dhus/odata/v1/Products('xxx')"
+    },
+    {
+      "id": "S2B_MSIL2A_20240928T155819_N0511_R097_T17SPV_20240928T203145",
+      "date": "2024-09-28",
+      "type": "post_disaster",
+      "platform": "Sentinel-2B",
+      "product_type": "S2MSI2A",
+      "cloud_cover_percent": 12.8,
+      "tile_id": "T17SPV",
+      "processing_level": "Level-2A",
+      "bands": [
+        "B02",
+        "B03",
+        "B04",
+        "B08",
+        "B11",
+        "B12"
+      ],
+      "resolution_m": 10,
+      "footprint": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -83.5,
+              35.0
+            ],
+            [
+              -81.5,
+              35.0
+            ],
+            [
+              -81.5,
+              36.5
+            ],
+            [
+              -83.5,
+              36.5
+            ],
+            [
+              -83.5,
+              35.0
+            ]
+          ]
+        ]
+      },
+      "download_url": "https://scihub.copernicus.eu/dhus/odata/v1/Products('yyy')"
+    }
+  ],
+  "analysis_notes": {
+    "method": "NDWI change detection",
+    "formula": "NDWI = (Green - NIR) / (Green + NIR)",
+    "flood_threshold": 0.3,
+    "bands_used": {
+      "green": "B03 (560nm)",
+      "nir": "B08 (842nm)",
+      "swir": "B11 (1610nm)"
+    }
+  },
+  "download_instructions": [
+    "1. Register at https://scihub.copernicus.eu/dhus/#/self-registration",
+    "2. Set COPERNICUS_USER and COPERNICUS_PASSWORD environment variables",
+    "3. Run: python scripts/download_satellite.py",
+    "4. Alternatively, use Copernicus Browser: https://browser.dataspace.copernicus.eu/"
+  ]
+}

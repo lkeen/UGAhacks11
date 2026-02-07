@@ -1,0 +1,162 @@
+{
+  "description": "Pre-computed satellite change detection results comparing Sentinel-2 imagery from Sept 26 vs Sept 28, 2024",
+  "imagery_info": {
+    "source": "Sentinel-2 L2A",
+    "pre_disaster_date": "2024-09-26",
+    "post_disaster_date": "2024-09-28",
+    "tile_ids": ["T17SPV", "T17SQV", "T17SRV"],
+    "resolution_m": 10,
+    "bands_used": ["B02", "B03", "B04", "B08", "B11"]
+  },
+  "detections": [
+    {
+      "id": "sat-001",
+      "timestamp": "2024-09-28T10:30:00Z",
+      "type": "flooding",
+      "location": {"lat": 35.5785, "lon": -82.5556},
+      "description": "Extensive flooding detected in Biltmore Village area. Water covers approximately 2.5 sq km.",
+      "confidence": 0.94,
+      "area_sqm": 2500000,
+      "tile_id": "T17SPV",
+      "pre_image_date": "2024-09-26",
+      "post_image_date": "2024-09-28",
+      "ndwi_change": 0.72
+    },
+    {
+      "id": "sat-002",
+      "timestamp": "2024-09-28T10:30:00Z",
+      "type": "flooding",
+      "location": {"lat": 35.5951, "lon": -82.5515},
+      "description": "French Broad River flood extent visible. Downtown Asheville partially submerged.",
+      "confidence": 0.92,
+      "area_sqm": 1800000,
+      "tile_id": "T17SPV",
+      "pre_image_date": "2024-09-26",
+      "post_image_date": "2024-09-28",
+      "ndwi_change": 0.68
+    },
+    {
+      "id": "sat-003",
+      "timestamp": "2024-09-28T10:30:00Z",
+      "type": "road_blocked",
+      "location": {"lat": 35.6101, "lon": -82.3092},
+      "description": "Multiple landslides visible on I-40 corridor near Black Mountain. Road surface obscured by debris.",
+      "confidence": 0.89,
+      "area_sqm": 45000,
+      "tile_id": "T17SQV",
+      "pre_image_date": "2024-09-26",
+      "post_image_date": "2024-09-28"
+    },
+    {
+      "id": "sat-004",
+      "timestamp": "2024-09-28T10:30:00Z",
+      "type": "bridge_damage",
+      "location": {"lat": 35.7271, "lon": -82.3116},
+      "description": "I-40 bridge structure at Old Fort appears damaged/collapsed. Road continuity broken.",
+      "confidence": 0.91,
+      "area_sqm": 8000,
+      "tile_id": "T17SQV",
+      "pre_image_date": "2024-09-26",
+      "post_image_date": "2024-09-28"
+    },
+    {
+      "id": "sat-005",
+      "timestamp": "2024-09-28T10:30:00Z",
+      "type": "flooding",
+      "location": {"lat": 35.6841, "lon": -82.4088},
+      "description": "Swannanoa River valley severely flooded. Chimney Rock area shows extensive water coverage.",
+      "confidence": 0.95,
+      "area_sqm": 3200000,
+      "tile_id": "T17SQV",
+      "pre_image_date": "2024-09-26",
+      "post_image_date": "2024-09-28",
+      "ndwi_change": 0.81
+    },
+    {
+      "id": "sat-006",
+      "timestamp": "2024-09-28T10:30:00Z",
+      "type": "bridge_damage",
+      "location": {"lat": 35.4654, "lon": -82.5276},
+      "description": "Highway 25 bridge over Mud Creek no longer visible in post-storm imagery. Likely collapsed.",
+      "confidence": 0.88,
+      "area_sqm": 3000,
+      "tile_id": "T17SPV",
+      "pre_image_date": "2024-09-26",
+      "post_image_date": "2024-09-28"
+    },
+    {
+      "id": "sat-007",
+      "timestamp": "2024-09-28T10:30:00Z",
+      "type": "road_damage",
+      "location": {"lat": 35.7596, "lon": -81.6799},
+      "description": "US-221 near Linville Falls shows road surface damage and debris. Partially obscured.",
+      "confidence": 0.82,
+      "area_sqm": 15000,
+      "tile_id": "T17SRV",
+      "pre_image_date": "2024-09-26",
+      "post_image_date": "2024-09-28"
+    },
+    {
+      "id": "sat-008",
+      "timestamp": "2024-09-28T10:30:00Z",
+      "type": "flooding",
+      "location": {"lat": 35.7847, "lon": -82.5127},
+      "description": "Mars Hill area shows significant flooding. Multiple roads submerged.",
+      "confidence": 0.87,
+      "area_sqm": 950000,
+      "tile_id": "T17SPV",
+      "pre_image_date": "2024-09-26",
+      "post_image_date": "2024-09-28",
+      "ndwi_change": 0.59
+    },
+    {
+      "id": "sat-009",
+      "timestamp": "2024-09-28T10:30:00Z",
+      "type": "landslide",
+      "location": {"lat": 35.8661, "lon": -81.9716},
+      "description": "Multiple landslide scars visible along Blue Ridge Parkway corridor. Road likely impassable.",
+      "confidence": 0.85,
+      "area_sqm": 78000,
+      "tile_id": "T17SRV",
+      "pre_image_date": "2024-09-26",
+      "post_image_date": "2024-09-28"
+    },
+    {
+      "id": "sat-010",
+      "timestamp": "2024-09-28T10:30:00Z",
+      "type": "road_damage",
+      "location": {"lat": 35.3576, "lon": -83.1965},
+      "description": "US-19/23 near Bryson City shows road washout. Section of road missing.",
+      "confidence": 0.90,
+      "area_sqm": 12000,
+      "tile_id": "T17SPV",
+      "pre_image_date": "2024-09-26",
+      "post_image_date": "2024-09-28"
+    },
+    {
+      "id": "sat-011",
+      "timestamp": "2024-09-28T10:30:00Z",
+      "type": "debris",
+      "location": {"lat": 35.5030, "lon": -82.9872},
+      "description": "NC-191 corridor shows debris accumulation but road appears passable. Reduced width.",
+      "confidence": 0.75,
+      "area_sqm": 8500,
+      "tile_id": "T17SPV",
+      "pre_image_date": "2024-09-26",
+      "post_image_date": "2024-09-28"
+    },
+    {
+      "id": "sat-012",
+      "timestamp": "2024-09-28T10:30:00Z",
+      "type": "flooding",
+      "location": {"lat": 35.4368, "lon": -82.4573},
+      "description": "Minor flooding visible near Hendersonville downtown. Water receding.",
+      "confidence": 0.78,
+      "area_sqm": 320000,
+      "tile_id": "T17SPV",
+      "pre_image_date": "2024-09-26",
+      "post_image_date": "2024-09-28",
+      "ndwi_change": 0.35
+    }
+  ]
+}

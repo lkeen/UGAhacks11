@@ -1,0 +1,147 @@
+{
+  "description": "Emergency shelters in Western NC during Hurricane Helene response",
+  "shelters": [
+    {
+      "id": "shelter-001",
+      "name": "Asheville High School Emergency Shelter",
+      "location": {"lat": 35.5312, "lon": -82.8299},
+      "address": "419 McDowell St, Asheville, NC 28803",
+      "capacity": 250,
+      "current_occupancy": 210,
+      "opened_at": "2024-09-27T07:00:00Z",
+      "needs": ["water", "blankets", "medical_supplies", "cots"],
+      "contact": "828-555-0101",
+      "accepts_pets": false,
+      "wheelchair_accessible": true,
+      "has_generator": true
+    },
+    {
+      "id": "shelter-002",
+      "name": "Hendersonville First Baptist Church",
+      "location": {"lat": 35.4368, "lon": -82.4573},
+      "address": "312 5th Ave W, Hendersonville, NC 28739",
+      "capacity": 150,
+      "current_occupancy": 150,
+      "opened_at": "2024-09-27T09:00:00Z",
+      "needs": ["water", "food", "diapers", "pet_supplies", "portable_toilets", "medical_supplies"],
+      "contact": "828-555-0102",
+      "accepts_pets": true,
+      "wheelchair_accessible": true,
+      "has_generator": true
+    },
+    {
+      "id": "shelter-003",
+      "name": "Watauga County Fairgrounds Shelter",
+      "location": {"lat": 35.9132, "lon": -81.5388},
+      "address": "489 Fairground Dr, Boone, NC 28607",
+      "capacity": 300,
+      "current_occupancy": 175,
+      "opened_at": "2024-09-27T12:00:00Z",
+      "needs": ["generators", "fuel", "medical_supplies", "water", "food"],
+      "contact": "828-555-0103",
+      "accepts_pets": true,
+      "wheelchair_accessible": true,
+      "has_generator": false
+    },
+    {
+      "id": "shelter-004",
+      "name": "Brevard College Emergency Shelter",
+      "location": {"lat": 35.2551, "lon": -82.7239},
+      "address": "400 N Broad St, Brevard, NC 28712",
+      "capacity": 200,
+      "current_occupancy": 145,
+      "opened_at": "2024-09-27T14:00:00Z",
+      "needs": ["water", "food", "cots", "charging_stations", "baby_formula", "diapers", "pet_food"],
+      "contact": "828-555-0104",
+      "accepts_pets": true,
+      "wheelchair_accessible": true,
+      "has_generator": true
+    },
+    {
+      "id": "shelter-005",
+      "name": "Cherokee Central Schools Shelter",
+      "location": {"lat": 35.3736, "lon": -83.2215},
+      "address": "1501 Acquoni Rd, Cherokee, NC 28719",
+      "capacity": 175,
+      "current_occupancy": 120,
+      "opened_at": "2024-09-27T20:00:00Z",
+      "needs": ["water", "blankets", "first_aid"],
+      "contact": "828-555-0105",
+      "accepts_pets": true,
+      "wheelchair_accessible": true,
+      "has_generator": true
+    },
+    {
+      "id": "shelter-006",
+      "name": "Black Mountain Presbyterian Church",
+      "location": {"lat": 35.6587, "lon": -82.1557},
+      "address": "117 Montreat Rd, Black Mountain, NC 28711",
+      "capacity": 100,
+      "current_occupancy": 78,
+      "opened_at": "2024-09-28T08:00:00Z",
+      "needs": ["water", "food", "medications"],
+      "contact": "828-555-0106",
+      "accepts_pets": false,
+      "wheelchair_accessible": true,
+      "has_generator": true
+    },
+    {
+      "id": "shelter-007",
+      "name": "Mars Hill University Gymnasium",
+      "location": {"lat": 35.7980, "lon": -82.5490},
+      "address": "100 Athletic St, Mars Hill, NC 28754",
+      "capacity": 400,
+      "current_occupancy": 0,
+      "opened_at": null,
+      "needs": ["water", "food", "medical_supplies", "generators"],
+      "contact": "828-555-0107",
+      "accepts_pets": true,
+      "wheelchair_accessible": true,
+      "has_generator": false,
+      "status": "planned",
+      "notes": "Awaiting road access to open"
+    },
+    {
+      "id": "shelter-008",
+      "name": "Buncombe County Schools Warehouse",
+      "location": {"lat": 35.5420, "lon": -82.6150},
+      "address": "175 Bingham Rd, Asheville, NC 28806",
+      "capacity": 500,
+      "current_occupancy": 325,
+      "opened_at": "2024-09-27T10:00:00Z",
+      "needs": ["water", "food", "cots", "blankets", "hygiene_kits"],
+      "contact": "828-555-0108",
+      "accepts_pets": false,
+      "wheelchair_accessible": true,
+      "has_generator": true
+    }
+  ],
+  "supply_depots": [
+    {
+      "id": "depot-001",
+      "name": "Asheville Regional Airport Staging Area",
+      "location": {"lat": 35.4363, "lon": -82.5418},
+      "address": "61 Terminal Dr, Fletcher, NC 28732",
+      "supplies": {
+        "water_cases": 500,
+        "mre_cases": 200,
+        "blankets": 300,
+        "medical_kits": 50,
+        "generators": 10
+      },
+      "notes": "Main receiving point for air shipments"
+    },
+    {
+      "id": "depot-002",
+      "name": "Ingles Distribution Center",
+      "location": {"lat": 35.4522, "lon": -82.4701},
+      "address": "2913 US-64, Hendersonville, NC 28792",
+      "supplies": {
+        "water_cases": 1000,
+        "food_cases": 500,
+        "baby_supplies": 100
+      },
+      "notes": "Commercial partner providing supplies"
+    }
+  ]
+}
