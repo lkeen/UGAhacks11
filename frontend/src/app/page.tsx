@@ -18,8 +18,8 @@ import type {
 } from '@/types';
 import * as api from '@/lib/api';
 
-// Default scenario time: Hurricane Helene landfall
-const DEFAULT_SCENARIO_TIME = '2024-09-27T14:00:00Z';
+// Default scenario time: Early morning before major events
+const DEFAULT_SCENARIO_TIME = '2024-09-27T03:00:00Z';
 
 // Western NC bounding box (Asheville area)
 const DEFAULT_VIEW = {
@@ -146,8 +146,39 @@ export default function Home() {
       setScenarioTime(response.scenario_time);
       addLogEntry('system', `Advanced time by ${hours} hours`, 'info');
 
-      // Refresh data
-      await fetchIntelligence();
+      // Log new reports per agent
+      Object.entries(response.new_reports).forEach(([agent, count]) => {
+        if (count > 0) {
+          addLogEntry(agent, `Found ${count} new report${count > 1 ? 's' : ''}`, 'info');
+        }
+      });
+
+      // Add new events to the events list (avoid duplicates by ID)
+      if (response.new_events && response.new_events.length > 0) {
+        setEvents((prevEvents) => {
+          const existingIds = new Set(prevEvents.map((e) => String(e.id)));
+          const uniqueNewEvents: Event[] = response.new_events
+            .filter((e) => !existingIds.has(e.id))
+            .map((e) => ({
+              id: e.id as unknown as number,
+              timestamp: e.timestamp,
+              event_type: e.event_type as EventType,
+              location_lat: e.location_lat,
+              location_lon: e.location_lon,
+              description: e.description,
+              source: e.source as Event['source'],
+              confidence: e.confidence,
+              severity: 5,
+              affected_radius_m: 100,
+              corroborations: 0,
+              is_active: true,
+              created_at: e.timestamp,
+              updated_at: e.timestamp,
+            }));
+          return [...prevEvents, ...uniqueNewEvents];
+        });
+        addLogEntry('system', `${response.new_events.length} new events detected`, 'success');
+      }
     } catch (err) {
       console.error('Failed to advance time:', err);
     }

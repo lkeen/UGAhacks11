@@ -73,7 +73,8 @@ class Orchestrator:
         self.router = Router(self.road_network)
 
         # Scenario state
-        self.scenario_time: datetime = datetime.fromisoformat("2024-09-27T12:00:00+00:00")
+        self.scenario_time: datetime = datetime.fromisoformat("2024-09-27T03:00:00+00:00")
+        self._previous_scenario_time: datetime | None = None
         self.bbox: BoundingBox = WESTERN_NC_BBOX
 
         # Agent outputs cache
@@ -372,13 +373,39 @@ class Orchestrator:
 
     def set_scenario_time(self, time: datetime) -> None:
         """Set the current scenario time."""
+        self._previous_scenario_time = self.scenario_time
         self.scenario_time = time
         # Clear cached intelligence
         self._last_intelligence = {}
 
+    async def gather_new_intelligence(self) -> dict[str, list[AgentReport]]:
+        """
+        Gather only NEW intelligence since the last time advancement.
+
+        Returns reports that occurred between _previous_scenario_time and scenario_time.
+        """
+        # Gather all intelligence up to current time
+        all_intelligence = await self.gather_all_intelligence()
+
+        # If no previous time, return all (first call)
+        if self._previous_scenario_time is None:
+            return all_intelligence
+
+        # Filter to only reports between previous and current time
+        new_intelligence = {}
+        for source, reports in all_intelligence.items():
+            new_reports = [
+                r for r in reports
+                if self._previous_scenario_time < r.timestamp <= self.scenario_time
+            ]
+            new_intelligence[source] = new_reports
+
+        return new_intelligence
+
     def advance_scenario_time(self, hours: float) -> None:
         """Advance scenario time by specified hours."""
         from datetime import timedelta
+        self._previous_scenario_time = self.scenario_time
         self.scenario_time += timedelta(hours=hours)
         self._last_intelligence = {}
 

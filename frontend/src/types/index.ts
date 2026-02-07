@@ -9,15 +9,18 @@
 
 export type EventType =
   | 'road_closure'
+  | 'road_damage'
+  | 'road_clear'
   | 'flooding'
   | 'bridge_collapse'
   | 'shelter_opening'
   | 'shelter_closing'
+  | 'shelter_need'
   | 'supply_request'
+  | 'supplies_needed'
   | 'power_outage'
   | 'infrastructure_damage'
-  | 'rescue_needed'
-  | 'road_clear';
+  | 'rescue_needed';
 
 export type DataSource =
   | 'satellite'
@@ -28,7 +31,8 @@ export type DataSource =
   | 'ncdot'
   | 'usgs'
   | 'local_emergency'
-  | 'news';
+  | 'news'
+  | 'citizen_report';
 
 export type RoadStatus = 'open' | 'damaged' | 'closed';
 

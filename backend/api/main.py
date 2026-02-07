@@ -36,9 +36,9 @@ def get_orchestrator() -> Orchestrator:
     global _orchestrator
     if _orchestrator is None:
         _orchestrator = Orchestrator()
-        # Set default scenario time
+        # Set default scenario time (early morning, before major events)
         _orchestrator.set_scenario_time(
-            datetime.fromisoformat("2024-09-27T14:00:00+00:00")
+            datetime.fromisoformat("2024-09-27T03:00:00+00:00")
         )
     return _orchestrator
 
@@ -117,6 +117,7 @@ async def list_events(
     event_type: Optional[str] = None,
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
+    use_scenario_time: bool = True,
     limit: int = 50,
 ):
     """
@@ -126,9 +127,11 @@ async def list_events(
         - event_type: Filter by type (road_closure, flooding, etc.)
         - start_time: Filter events after this time (ISO format)
         - end_time: Filter events before this time (ISO format)
+        - use_scenario_time: If true, filter to events before current scenario time
         - limit: Maximum events to return
     """
     db = get_db()
+    orchestrator = get_orchestrator()
 
     try:
         with db.session() as session:
@@ -143,9 +146,12 @@ async def list_events(
                 start = datetime.fromisoformat(start_time)
                 query = query.filter(Event.timestamp >= start)
 
+            # Use scenario time as end_time if not explicitly provided
             if end_time:
                 end = datetime.fromisoformat(end_time)
                 query = query.filter(Event.timestamp <= end)
+            elif use_scenario_time:
+                query = query.filter(Event.timestamp <= orchestrator.scenario_time)
 
             events = query.order_by(Event.timestamp.desc()).limit(limit).all()
 
@@ -267,12 +273,38 @@ async def set_scenario_time(request: ScenarioTimeRequest):
 
 @app.post("/scenario/advance")
 async def advance_scenario_time(request: AdvanceTimeRequest):
-    """Advance scenario time by specified hours."""
+    """Advance scenario time by specified hours and return new intelligence."""
     orchestrator = get_orchestrator()
+    previous_time = orchestrator.scenario_time
     orchestrator.advance_scenario_time(request.hours)
+
+    # Gather only NEW intelligence since the time advance
+    new_intelligence = await orchestrator.gather_new_intelligence()
+
+    # Convert reports to event format for the frontend
+    new_events = []
+    for source, reports in new_intelligence.items():
+        for report in reports:
+            new_events.append({
+                "id": report.id,
+                "event_type": report.event_type.value,
+                "timestamp": report.timestamp.isoformat(),
+                "location_lat": report.location.lat,
+                "location_lon": report.location.lon,
+                "description": report.description,
+                "source": report.source.value,
+                "confidence": report.confidence,
+                "agent_name": report.agent_name,
+            })
+
     return {
         "message": f"Advanced scenario by {request.hours} hours",
         "scenario_time": orchestrator.scenario_time.isoformat(),
+        "previous_time": previous_time.isoformat(),
+        "new_reports": {
+            source: len(reports) for source, reports in new_intelligence.items()
+        },
+        "new_events": new_events,
     }
 
 

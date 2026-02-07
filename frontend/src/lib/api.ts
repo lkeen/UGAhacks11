@@ -223,10 +223,30 @@ export async function setScenarioTime(time: string): Promise<{ scenario_time: st
 }
 
 /**
+ * Response from advancing scenario time
+ */
+interface AdvanceTimeResponse {
+  scenario_time: string;
+  previous_time: string;
+  new_reports: Record<string, number>;
+  new_events: Array<{
+    id: string;
+    event_type: string;
+    timestamp: string;
+    location_lat: number;
+    location_lon: number;
+    description: string;
+    source: string;
+    confidence: number;
+    agent_name: string;
+  }>;
+}
+
+/**
  * Advance the scenario time by specified hours
  */
-export async function advanceScenarioTime(hours: number): Promise<{ scenario_time: string }> {
-  return fetchAPI<{ scenario_time: string }>('/scenario/advance', {
+export async function advanceScenarioTime(hours: number): Promise<AdvanceTimeResponse> {
+  return fetchAPI<AdvanceTimeResponse>('/scenario/advance', {
     method: 'POST',
     body: JSON.stringify({ hours }),
   });
