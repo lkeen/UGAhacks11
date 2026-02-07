@@ -10,6 +10,7 @@ import { StatusBar } from '@/components/StatusBar';
 import type {
   Shelter,
   Event,
+  EventType,
   QueryResponse,
   AgentReport,
   NetworkStatus,
@@ -46,6 +47,7 @@ export default function Home() {
   const [scenarioTime, setScenarioTime] = useState(DEFAULT_SCENARIO_TIME);
   const [agentLogs, setAgentLogs] = useState<AgentLogEntry[]>([]);
   const [selectedShelter, setSelectedShelter] = useState<Shelter | null>(null);
+  const [highlightedEventType, setHighlightedEventType] = useState<EventType | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -150,14 +152,16 @@ export default function Home() {
     }
   };
 
-  const handleShelterSelect = (shelter: Shelter) => {
+  const handleShelterSelect = (shelter: Shelter | null) => {
     setSelectedShelter(shelter);
     // Center map on selected shelter
-    setMapView({
-      longitude: shelter.location_lon,
-      latitude: shelter.location_lat,
-      zoom: 13,
-    });
+    if (shelter) {
+      setMapView({
+        longitude: shelter.location_lon,
+        latitude: shelter.location_lat,
+        zoom: 13,
+      });
+    }
   };
 
   // =========================================================================
@@ -213,6 +217,8 @@ export default function Home() {
           events={events}
           selectedShelter={selectedShelter}
           onShelterSelect={handleShelterSelect}
+          highlightedEventType={highlightedEventType}
+          onEventTypeSelect={setHighlightedEventType}
         />
 
         {/* Map area */}
@@ -225,6 +231,7 @@ export default function Home() {
             routes={queryResponse?.delivery_plan.routes || []}
             selectedShelter={selectedShelter}
             onShelterClick={handleShelterSelect}
+            highlightedEventType={highlightedEventType}
           />
 
           {/* Query panel overlay */}

@@ -3,13 +3,27 @@
 import { useRef, useEffect, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import type { Shelter, Event, Route, MapViewState } from '@/types';
+import type { Shelter, Event, Route, MapViewState, EventType } from '@/types';
 
 // Free OpenStreetMap-based tile styles (swap as needed):
 // const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';      // Light
 // const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';   // Dark
 // const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';       // Colorful
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+
+// Event type colors
+const EVENT_COLORS: Record<string, string> = {
+  road_closure: '#dc2626',      // red-600
+  flooding: '#2563eb',          // blue-600
+  bridge_collapse: '#991b1b',   // red-800
+  shelter_opening: '#16a34a',   // green-600
+  shelter_closing: '#ca8a04',   // yellow-600
+  supply_request: '#9333ea',    // purple-600
+  power_outage: '#4b5563',      // gray-600
+  infrastructure_damage: '#ea580c', // orange-600
+  rescue_needed: '#e11d48',     // rose-600
+  road_clear: '#22c55e',        // green-500
+};
 
 interface MapProps {
   viewState: MapViewState;
@@ -19,6 +33,7 @@ interface MapProps {
   routes: Route[];
   selectedShelter: Shelter | null;
   onShelterClick: (shelter: Shelter) => void;
+  highlightedEventType: EventType | null;
 }
 
 export function Map({
@@ -29,11 +44,13 @@ export function Map({
   routes,
   selectedShelter,
   onShelterClick,
+  highlightedEventType,
 }: MapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const markersRef = useRef<maplibregl.Marker[]>([]);
+  const shelterMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const eventMarkersRef = useRef<maplibregl.Marker[]>([]);
 
   // Initialize map
   useEffect(() => {
@@ -95,8 +112,8 @@ export function Map({
     if (!map.current || !mapLoaded) return;
 
     // Clear existing markers
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current = [];
+    shelterMarkersRef.current.forEach((marker) => marker.remove());
+    shelterMarkersRef.current = [];
 
     // Add shelter markers
     shelters.forEach((shelter) => {
@@ -113,7 +130,7 @@ export function Map({
 
       el.addEventListener('click', () => onShelterClick(shelter));
 
-      markersRef.current.push(marker);
+      shelterMarkersRef.current.push(marker);
     });
   }, [shelters, selectedShelter, mapLoaded, onShelterClick]);
 
@@ -121,10 +138,32 @@ export function Map({
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
-    // TODO: Add event markers (flooding, road closures, etc.)
-    // For now, this is a placeholder for event visualization
-    // Events should be shown as colored circles or icons based on event_type
-  }, [events, mapLoaded]);
+    // Clear existing event markers
+    eventMarkersRef.current.forEach((marker) => marker.remove());
+    eventMarkersRef.current = [];
+
+    // Add event markers
+    events.forEach((event) => {
+      const lat = event.location_lat;
+      const lon = event.location_lon;
+
+      if (lat === undefined || lon === undefined) return;
+
+      const isHighlighted = highlightedEventType === event.event_type;
+      const el = document.createElement('div');
+      el.className = 'event-marker';
+      el.innerHTML = getEventMarkerHTML(event, isHighlighted);
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([lon, lat])
+        .setPopup(
+          new maplibregl.Popup({ offset: 25 }).setHTML(getEventPopupHTML(event))
+        )
+        .addTo(map.current!);
+
+      eventMarkersRef.current.push(marker);
+    });
+  }, [events, mapLoaded, highlightedEventType]);
 
   // Add route lines
   useEffect(() => {
@@ -270,6 +309,45 @@ function getShelterPopupHTML(shelter: Shelter): string {
             </div>`
           : ''
       }
+    </div>
+  `;
+}
+
+function getEventMarkerHTML(event: Event, isHighlighted: boolean): string {
+  const color = EVENT_COLORS[event.event_type] || '#6b7280';
+  const size = isHighlighted ? 24 : 12;
+  const opacity = isHighlighted ? 1 : 0.8;
+  const border = isHighlighted ? '3px solid white' : 'none';
+  const shadow = isHighlighted ? '0 0 10px rgba(0,0,0,0.5)' : '0 2px 4px rgba(0,0,0,0.3)';
+
+  return `
+    <div style="
+      width: ${size}px;
+      height: ${size}px;
+      background-color: ${color};
+      opacity: ${opacity};
+      border: ${border};
+      box-shadow: ${shadow};
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    "></div>
+  `;
+}
+
+function getEventPopupHTML(event: Event): string {
+  const typeLabel = event.event_type.replace(/_/g, ' ');
+  const color = EVENT_COLORS[event.event_type] || '#6b7280';
+
+  return `
+    <div class="p-2 max-w-xs">
+      <div class="flex items-center gap-2 mb-1">
+        <span style="width: 10px; height: 10px; background: ${color}; border-radius: 50%;"></span>
+        <h3 class="font-bold text-gray-900 capitalize">${typeLabel}</h3>
+      </div>
+      <p class="text-sm text-gray-600">${event.description || 'No description available'}</p>
+      ${event.timestamp ? `<p class="text-xs text-gray-400 mt-1">${new Date(event.timestamp).toLocaleString()}</p>` : ''}
+      ${event.source ? `<p class="text-xs text-gray-400">Source: ${event.source}</p>` : ''}
     </div>
   `;
 }
