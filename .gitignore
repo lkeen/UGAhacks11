@@ -76,6 +76,10 @@ node_modules/
 npm-debug.log
 yarn-error.log
 
+# Next.js
+frontend/.next/
+frontend/out/
+
 # Build outputs
 frontend/build/
 frontend/dist/

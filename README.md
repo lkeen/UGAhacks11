@@ -60,6 +60,34 @@ uvicorn backend.api.main:app --reload
 python -m backend.orchestrator.cli
 ```
 
+### Frontend Setup (Next.js Dashboard)
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Set up environment
+cp .env.local.example .env.local
+# Add your Mapbox token to .env.local
+
+# Run development server
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to view the dashboard.
+
+### Docker (Full Stack)
+
+```bash
+# Run both backend and frontend
+docker-compose up
+
+# Backend: http://localhost:8000
+# Frontend: http://localhost:3000
+```
+
 ## Architecture
 
 ```
@@ -110,7 +138,15 @@ disaster-relief-optimizer/
 │   ├── data/                 # Local data storage
 │   ├── database/             # SQLite + SpatiaLite
 │   └── api/                  # FastAPI endpoints
-├── frontend/                 # React dashboard (Phase 2)
+├── frontend/                 # Next.js dashboard
+│   ├── src/
+│   │   ├── app/              # Next.js app router
+│   │   ├── components/       # React components
+│   │   ├── lib/              # API client & utilities
+│   │   ├── hooks/            # Custom React hooks
+│   │   └── types/            # TypeScript definitions
+│   ├── package.json
+│   └── Dockerfile
 ├── scripts/                  # Data download utilities
 ├── tests/
 ├── docker-compose.yml
@@ -143,6 +179,8 @@ disaster-relief-optimizer/
 | `DATABASE_URL` | SQLite database path |
 | `COPERNICUS_USER` | Copernicus Open Access Hub username |
 | `COPERNICUS_PASSWORD` | Copernicus Open Access Hub password |
+| `MAPBOX_TOKEN` | Mapbox access token for frontend map |
+| `NEXT_PUBLIC_API_URL` | Backend API URL (default: http://localhost:8000) |
 
 ## License
 
