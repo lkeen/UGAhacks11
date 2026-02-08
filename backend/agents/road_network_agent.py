@@ -196,27 +196,28 @@ class RoadNetworkAgent(BaseAgent):
         sorted_reports = sorted(reports, key=lambda r: r.timestamp, reverse=True)
         latest_report = sorted_reports[0]
 
-        # If the most recent report is a road_clear, the road is open
+        # Check if the most recent report is a road_clear
         if latest_report.event_type == EventType.ROAD_CLEAR:
-            status = "clear"
-            weight_multiplier = 1.0
-            event_type = EventType.ROAD_CLEAR
-            confidence = latest_report.confidence
+            # Only trust the ROAD_CLEAR if no hazard report has higher confidence
+            hazard_reports = [r for r in sorted_reports if r.event_type != EventType.ROAD_CLEAR]
+            higher_conf_hazard = [r for r in hazard_reports if r.confidence > latest_report.confidence]
 
-            # Remove this location from road status if it was previously blocked
-            if loc_key in self._road_status:
-                del self._road_status[loc_key]
+            if not higher_conf_hazard:
+                # ROAD_CLEAR wins — remove this location from road status
+                if loc_key in self._road_status:
+                    del self._road_status[loc_key]
 
-            # Reset road network if manager available
-            if self.road_network_manager:
-                self.road_network_manager.update_edge_weight_by_location(
-                    latest_report.location,
-                    1.0,  # Normal weight
-                    confidence,
-                )
-            return
+                # Reset road network if manager available
+                if self.road_network_manager:
+                    self.road_network_manager.update_edge_weight_by_location(
+                        latest_report.location,
+                        1.0,  # Normal weight
+                        latest_report.confidence,
+                    )
+                return
+            # Fall through to hazard processing below
 
-        # Otherwise, use the most recent hazard report
+        # Use the most recent hazard report
         hazard_reports = [r for r in sorted_reports if r.event_type != EventType.ROAD_CLEAR]
 
         if not hazard_reports:

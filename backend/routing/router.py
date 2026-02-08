@@ -1,5 +1,6 @@
 """Route planning and optimization."""
 
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -88,7 +89,7 @@ class Router:
         result = self.network.find_route(origin, destination)
 
         if result is None:
-            return None
+            return self._plan_direct_route(origin, destination)
 
         path, total_weight = result
 
@@ -271,6 +272,53 @@ class Router:
             parts.append("All segments on route are clear")
 
         return ". ".join(parts) + "."
+
+    def _plan_direct_route(
+        self,
+        origin: Location,
+        destination: Location,
+    ) -> Route:
+        """
+        Create a direct-distance fallback route when graph routing fails.
+
+        Uses haversine distance and marks confidence lower to indicate
+        this is an estimate without verified road data.
+        """
+        distance_m = self._haversine_distance(
+            origin.lat, origin.lon, destination.lat, destination.lon
+        )
+
+        self._route_counter += 1
+        route_id = f"route-{self._route_counter:04d}"
+
+        # Estimate duration at reduced speed (30 km/h) for disaster conditions
+        duration_min = (distance_m / 1000) / self.SPEED_URBAN * 60
+
+        return Route(
+            id=route_id,
+            origin=origin,
+            destination=destination,
+            waypoints=[(origin.lon, origin.lat), (destination.lon, destination.lat)],
+            distance_m=distance_m,
+            estimated_duration_min=duration_min,
+            hazards_avoided=[],
+            confidence=0.5,
+            reasoning="Direct-distance estimate (no verified road path available). Actual route may differ.",
+        )
+
+    @staticmethod
+    def _haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """Calculate haversine distance between two points in meters."""
+        R = 6371000  # Earth radius in meters
+        phi1 = math.radians(lat1)
+        phi2 = math.radians(lat2)
+        dphi = math.radians(lat2 - lat1)
+        dlambda = math.radians(lon2 - lon1)
+
+        a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+        return R * c
 
     def _optimize_destination_order(
         self,

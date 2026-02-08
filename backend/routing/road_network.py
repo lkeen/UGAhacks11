@@ -80,7 +80,7 @@ class RoadNetworkManager:
                 # Calculate length from coordinates if not provided
                 length = props.get("length", self._calculate_length(coords))
 
-                # Add edge
+                # Add forward edge
                 self.graph.add_edge(
                     start,
                     end,
@@ -93,8 +93,22 @@ class RoadNetworkManager:
                     weight=length,  # Dynamic weight
                 )
 
-                # Initialize edge status
+                # Add reverse edge for bidirectional travel
+                self.graph.add_edge(
+                    end,
+                    start,
+                    osm_id=props.get("osmid"),
+                    name=props.get("name"),
+                    highway=props.get("highway"),
+                    length=length,
+                    geometry=list(reversed(coords)),
+                    base_weight=length,
+                    weight=length,
+                )
+
+                # Initialize edge status for both directions
                 self.edge_status[(start, end)] = EdgeStatus()
+                self.edge_status[(end, start)] = EdgeStatus()
 
         self._osm_data_loaded = True
 
@@ -315,6 +329,10 @@ class RoadNetworkManager:
             total_weight = nx.dijkstra_path_length(
                 self.graph, start_node, end_node, weight="weight"
             )
+
+            # Treat infinite-weight paths as impassable
+            if total_weight == float("inf"):
+                return None
 
             return path, total_weight
         except nx.NetworkXNoPath:

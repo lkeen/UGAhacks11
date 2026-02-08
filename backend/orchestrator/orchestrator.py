@@ -1,9 +1,13 @@
 """Orchestrator for multi-agent disaster relief coordination."""
 
 import json
+import logging
 import os
+import re
 from datetime import datetime
 from pathlib import Path
+
+import anthropic
 
 from backend.agents import (
     BaseAgent,
@@ -15,19 +19,22 @@ from backend.agents import (
     BoundingBox,
     WESTERN_NC_BBOX,
 )
+from backend.agents.base_agent import EventType, Location
+from backend.config import ANTHROPIC_API_KEY, CLAUDE_MODEL, CLAUDE_MAX_TOKENS
 from backend.routing import RoadNetworkManager, Router, Route
-from backend.agents.base_agent import Location
+from backend.utils.report_aggregator import identify_conflicting_reports
+
+logger = logging.getLogger(__name__)
 
 
 class Orchestrator:
     """
     Main orchestrator that coordinates multiple agents for disaster relief.
 
-    Uses Claude API (when integrated) to:
+    Uses Claude API to:
     1. Parse user queries about supply routing
-    2. Query appropriate agents for situational awareness
-    3. Plan optimal delivery routes
-    4. Generate human-readable delivery plans with reasoning
+    2. Resolve conflicting agent reports
+    3. Generate human-readable delivery plans with reasoning
     """
 
     def __init__(
@@ -39,11 +46,20 @@ class Orchestrator:
         Initialize the orchestrator.
 
         Args:
-            anthropic_api_key: API key for Claude (optional for skeleton)
+            anthropic_api_key: API key for Claude (falls back to env/config)
             data_dir: Directory containing mock data files
         """
-        self.api_key = anthropic_api_key or os.getenv("ANTHROPIC_API_KEY")
+        self.api_key = anthropic_api_key or ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY")
         self.data_dir = Path(data_dir) if data_dir else Path(__file__).parent.parent / "data"
+
+        # Initialize Claude client
+        self.client: anthropic.Anthropic | None = None
+        if self.api_key:
+            try:
+                self.client = anthropic.Anthropic(api_key=self.api_key)
+                logger.info("Claude API client initialized successfully")
+            except Exception as e:
+                logger.warning("Failed to initialize Claude client: %s", e)
 
         # Initialize agents
         self.satellite_agent = SatelliteAgent(
@@ -58,13 +74,16 @@ class Orchestrator:
         # Also load shelter data into official agent
         shelters_path = self.data_dir / "shelters" / "shelters.json"
         if shelters_path.exists():
-            import json
             with open(shelters_path) as f:
                 shelter_data = json.load(f)
                 self.official_data_agent._shelters = shelter_data.get("shelters", [])
 
         # Initialize road network
         self.road_network = RoadNetworkManager()
+        geojson_path = self.data_dir / "osm" / "western_nc_roads.geojson"
+        if geojson_path.exists():
+            self.road_network.load_from_geojson(geojson_path)
+            logger.info("Loaded road network from %s", geojson_path)
         self.road_network_agent = RoadNetworkAgent(
             road_network_manager=self.road_network
         )
@@ -79,6 +98,10 @@ class Orchestrator:
 
         # Agent outputs cache
         self._last_intelligence: dict[str, list[AgentReport]] = {}
+
+    # ------------------------------------------------------------------
+    # Intelligence gathering
+    # ------------------------------------------------------------------
 
     async def gather_all_intelligence(self) -> dict[str, list[AgentReport]]:
         """
@@ -132,85 +155,292 @@ class Orchestrator:
 
         return total_updated
 
+    # ------------------------------------------------------------------
+    # Main query pipeline
+    # ------------------------------------------------------------------
+
     async def process_query(self, query: str) -> dict:
         """
         Process a natural language query about supply routing.
 
-        This is the main entry point for user queries.
+        Pipeline: parse -> gather intel -> resolve conflicts -> plan routes -> explain.
 
         Args:
-            query: User query like "I have 200 water cases at Asheville depot, where should they go?"
+            query: User query like "I have 200 water cases at Asheville depot"
 
         Returns:
             Dict with delivery plan and reasoning
         """
-        # Step 1: Gather intelligence
-        intelligence = await self.gather_all_intelligence()
-
-        # Step 2: Apply to road network
-        edges_updated = self.apply_intelligence_to_network()
-
-        # Step 3: Parse query (placeholder for Claude integration)
+        # Step 1: Parse query via Claude (or fallback)
         parsed = self._parse_query(query)
 
-        # Step 4: Get shelter needs
+        # Step 2: Gather intelligence
+        intelligence = await self.gather_all_intelligence()
+
+        # Step 3: Apply to road network
+        edges_updated = self.apply_intelligence_to_network()
+
+        # Step 4: Resolve conflicts
+        all_reports = [r for reports in intelligence.values() for r in reports]
+        conflicts = identify_conflicting_reports(all_reports)
+        resolved_conflicts = []
+        for conflict in conflicts:
+            resolution = self.resolve_conflicting_reports(
+                conflict["reports"], conflict["road_id"]
+            )
+            resolved_conflicts.append(resolution)
+
+        # Step 5: Get shelter needs
         shelters = self._get_priority_shelters()
 
-        # Step 5: Plan routes
+        # Step 6: Plan routes
         routes = self._plan_delivery_routes(parsed, shelters)
 
-        # Step 6: Generate response
-        response = self._generate_response(parsed, routes, intelligence)
+        # Step 7: Generate response with Claude reasoning
+        response = self._generate_response(parsed, routes, intelligence, resolved_conflicts)
 
         return response
 
+    # ------------------------------------------------------------------
+    # Claude-powered query parsing
+    # ------------------------------------------------------------------
+
     def _parse_query(self, query: str) -> dict:
         """
-        Parse user query to extract intent and parameters.
+        Parse user query using Claude to extract structured parameters.
 
-        TODO: Replace with Claude API call for intelligent parsing.
+        Falls back to keyword-based parsing if Claude API is unavailable.
         """
-        # Simple keyword-based parsing for skeleton
+        if self.client:
+            try:
+                return self._parse_query_with_claude(query)
+            except Exception as e:
+                logger.warning("Claude query parsing failed, using fallback: %s", e)
+
+        return self._parse_query_fallback(query)
+
+    def _parse_query_with_claude(self, query: str) -> dict:
+        """Call Claude to extract structured info from a natural language query."""
+        response = self.client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=CLAUDE_MAX_TOKENS,
+            system="You are a disaster relief logistics parser. Extract structured data from supply routing queries. Respond ONLY with valid JSON, no markdown fences.",
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        "Extract the following from this disaster relief query:\n"
+                        "- intent: one of 'route_supplies', 'check_status', 'find_shelter'\n"
+                        "- supplies: dict mapping supply type (water_cases, blankets, medical_kits, food_cases) to integer quantity\n"
+                        "- origin_description: string describing where supplies are\n"
+                        "- origin_lat: float latitude if identifiable (Asheville=35.5951, Asheville airport=35.4363, Hendersonville=35.4368)\n"
+                        "- origin_lon: float longitude if identifiable (Asheville=-82.5515, Asheville airport=-82.5418, Hendersonville=-82.4573)\n"
+                        "- urgency: one of 'low', 'medium', 'high', 'critical'\n"
+                        "- constraints: list of strings (e.g. 'avoid flooding', 'prefer highway')\n\n"
+                        f"Query: {query}\n\n"
+                        "JSON:"
+                    ),
+                }
+            ],
+        )
+
+        raw = response.content[0].text.strip()
+        # Strip markdown code fences if present
+        if raw.startswith("```"):
+            raw = re.sub(r"^```(?:json)?\s*", "", raw)
+            raw = re.sub(r"\s*```$", "", raw)
+
+        data = json.loads(raw)
+
+        # Build the parsed dict in the standard format
+        origin = None
+        if data.get("origin_lat") and data.get("origin_lon"):
+            origin = Location(
+                lat=data["origin_lat"],
+                lon=data["origin_lon"],
+                address=data.get("origin_description"),
+            )
+
+        parsed = {
+            "intent": data.get("intent", "route_supplies"),
+            "supplies": data.get("supplies", {}),
+            "origin": origin,
+            "raw_query": query,
+            "urgency": data.get("urgency", "medium"),
+            "constraints": data.get("constraints", []),
+            "parsed_by": "claude",
+        }
+
+        # Default origin if Claude couldn't determine one
+        if parsed["origin"] is None:
+            parsed["origin"] = Location(
+                lat=35.4363, lon=-82.5418, address="Asheville Regional Airport"
+            )
+
+        return parsed
+
+    def _parse_query_fallback(self, query: str) -> dict:
+        """Keyword-based query parsing fallback."""
         parsed = {
             "intent": "route_supplies",
             "supplies": {},
             "origin": None,
             "raw_query": query,
+            "urgency": "medium",
+            "constraints": [],
+            "parsed_by": "keyword",
         }
 
         query_lower = query.lower()
 
         # Extract supply types and quantities
-        if "water" in query_lower:
-            # Look for number before "water"
-            import re
-            match = re.search(r"(\d+)\s*(?:cases?\s+of\s+)?water", query_lower)
+        supply_patterns = {
+            "water_cases": r"(\d+)\s*(?:cases?\s+of\s+)?water",
+            "blankets": r"(\d+)\s*blanket",
+            "medical_kits": r"(\d+)\s*(?:medical\s+)?(?:kit|med)",
+            "food_cases": r"(\d+)\s*(?:cases?\s+of\s+)?food",
+        }
+        for supply_key, pattern in supply_patterns.items():
+            match = re.search(pattern, query_lower)
             if match:
-                parsed["supplies"]["water_cases"] = int(match.group(1))
-
-        if "blanket" in query_lower:
-            import re
-            match = re.search(r"(\d+)\s*blanket", query_lower)
-            if match:
-                parsed["supplies"]["blankets"] = int(match.group(1))
+                parsed["supplies"][supply_key] = int(match.group(1))
 
         # Extract origin
-        if "asheville" in query_lower:
+        if "asheville" in query_lower and "airport" in query_lower:
+            parsed["origin"] = Location(lat=35.4363, lon=-82.5418, address="Asheville Regional Airport")
+        elif "asheville" in query_lower:
             parsed["origin"] = Location(lat=35.5951, lon=-82.5515, address="Asheville, NC")
         elif "hendersonville" in query_lower:
             parsed["origin"] = Location(lat=35.4368, lon=-82.4573, address="Hendersonville, NC")
         elif "airport" in query_lower:
             parsed["origin"] = Location(lat=35.4363, lon=-82.5418, address="Asheville Regional Airport")
 
-        # Default origin if not found
+        # Default origin
         if parsed["origin"] is None:
             parsed["origin"] = Location(lat=35.4363, lon=-82.5418, address="Asheville Regional Airport")
 
+        # Urgency hints
+        if any(w in query_lower for w in ["urgent", "critical", "emergency", "asap"]):
+            parsed["urgency"] = "critical"
+        elif any(w in query_lower for w in ["soon", "quickly", "hurry"]):
+            parsed["urgency"] = "high"
+
         return parsed
+
+    # ------------------------------------------------------------------
+    # Conflict resolution via Claude
+    # ------------------------------------------------------------------
+
+    def resolve_conflicting_reports(
+        self,
+        reports: list[AgentReport],
+        road_id: str,
+    ) -> dict:
+        """
+        Use Claude to resolve conflicting reports about a road/location.
+
+        Falls back to highest-confidence-wins heuristic if Claude is unavailable.
+
+        Args:
+            reports: Conflicting AgentReport objects about the same location.
+            road_id: Identifier for the road or location in question.
+
+        Returns:
+            Dict with resolved_status, confidence, reasoning.
+        """
+        if self.client and len(reports) >= 2:
+            try:
+                return self._resolve_conflicts_with_claude(reports, road_id)
+            except Exception as e:
+                logger.warning("Claude conflict resolution failed, using fallback: %s", e)
+
+        return self._resolve_conflicts_fallback(reports, road_id)
+
+    def _resolve_conflicts_with_claude(
+        self, reports: list[AgentReport], road_id: str
+    ) -> dict:
+        """Ask Claude to resolve conflicting reports."""
+        reports_summary = []
+        for r in reports:
+            reports_summary.append({
+                "agent": r.agent_name,
+                "event_type": r.event_type.value,
+                "confidence": r.confidence,
+                "source": r.source.value,
+                "description": r.description,
+                "timestamp": r.timestamp.isoformat(),
+            })
+
+        response = self.client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=CLAUDE_MAX_TOKENS,
+            system="You are a disaster relief intelligence analyst. Resolve conflicting field reports. Respond ONLY with valid JSON, no markdown fences.",
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        f"These reports about '{road_id}' are conflicting:\n"
+                        f"{json.dumps(reports_summary, indent=2)}\n\n"
+                        "Analyze source reliability, recency, and confidence to determine the true status.\n"
+                        "Respond with JSON:\n"
+                        '{"resolved_status": "blocked|damaged|clear", '
+                        '"confidence": 0.0-1.0, '
+                        '"reasoning": "explanation"}'
+                    ),
+                }
+            ],
+        )
+
+        raw = response.content[0].text.strip()
+        if raw.startswith("```"):
+            raw = re.sub(r"^```(?:json)?\s*", "", raw)
+            raw = re.sub(r"\s*```$", "", raw)
+
+        result = json.loads(raw)
+        result["road_id"] = road_id
+        result["resolved_by"] = "claude"
+        return result
+
+    def _resolve_conflicts_fallback(
+        self, reports: list[AgentReport], road_id: str
+    ) -> dict:
+        """Resolve conflicts by picking the highest-confidence report."""
+        if not reports:
+            return {
+                "road_id": road_id,
+                "resolved_status": "unknown",
+                "confidence": 0.0,
+                "reasoning": "No reports available.",
+                "resolved_by": "fallback",
+            }
+
+        best = max(reports, key=lambda r: r.confidence)
+
+        status_map = {
+            EventType.ROAD_CLOSURE: "blocked",
+            EventType.BRIDGE_COLLAPSE: "blocked",
+            EventType.FLOODING: "blocked",
+            EventType.ROAD_DAMAGE: "damaged",
+            EventType.ROAD_CLEAR: "clear",
+        }
+
+        return {
+            "road_id": road_id,
+            "resolved_status": status_map.get(best.event_type, "unknown"),
+            "confidence": best.confidence,
+            "reasoning": (
+                f"Resolved by highest confidence ({best.confidence:.0%}) from "
+                f"{best.agent_name or best.source.value}: {best.description}"
+            ),
+            "resolved_by": "fallback",
+        }
+
+    # ------------------------------------------------------------------
+    # Shelter & route planning (unchanged)
+    # ------------------------------------------------------------------
 
     def _get_priority_shelters(self) -> list[dict]:
         """Get shelters prioritized by urgency of needs."""
-        # Load shelters from data
         shelters_path = self.data_dir / "shelters" / "shelters.json"
         if not shelters_path.exists():
             return []
@@ -262,8 +492,6 @@ class Orchestrator:
             shelter_needs = set(shelter.get("needs", []))
             supply_types = set(supplies.keys())
 
-            # Check if we have anything this shelter needs
-            # Simple matching: water_cases -> water, blankets -> blankets
             supply_to_need = {
                 "water_cases": "water",
                 "blankets": "blankets",
@@ -279,7 +507,6 @@ class Orchestrator:
             if not matched_needs:
                 continue
 
-            # Plan route to this shelter
             dest = Location(
                 lat=shelter["location"]["lat"],
                 lon=shelter["location"]["lon"],
@@ -298,25 +525,27 @@ class Orchestrator:
 
         return routes
 
+    # ------------------------------------------------------------------
+    # Response generation
+    # ------------------------------------------------------------------
+
     def _generate_response(
         self,
         parsed_query: dict,
         routes: list[Route],
         intelligence: dict[str, list[AgentReport]],
+        resolved_conflicts: list[dict] | None = None,
     ) -> dict:
         """
         Generate final response with delivery plan and reasoning.
-
-        TODO: Use Claude API for natural language generation.
         """
-        # Summarize intelligence
         total_reports = sum(len(r) for r in intelligence.values())
         blocked_roads = len(self.road_network.get_blocked_edges())
         damaged_roads = len(self.road_network.get_damaged_edges())
 
-        # Build response
         response = {
             "query": parsed_query.get("raw_query"),
+            "parsed_by": parsed_query.get("parsed_by", "unknown"),
             "scenario_time": self.scenario_time.isoformat(),
             "situational_awareness": {
                 "total_reports": total_reports,
@@ -329,9 +558,11 @@ class Orchestrator:
             "delivery_plan": {
                 "origin": parsed_query.get("origin").to_dict() if parsed_query.get("origin") else None,
                 "supplies": parsed_query.get("supplies", {}),
+                "urgency": parsed_query.get("urgency", "medium"),
                 "routes": [r.to_dict() for r in routes],
             },
-            "reasoning": self._build_reasoning(routes, intelligence),
+            "conflicts_resolved": resolved_conflicts or [],
+            "reasoning": self._build_reasoning(routes, intelligence, resolved_conflicts),
         }
 
         return response
@@ -340,8 +571,79 @@ class Orchestrator:
         self,
         routes: list[Route],
         intelligence: dict[str, list[AgentReport]],
+        resolved_conflicts: list[dict] | None = None,
     ) -> str:
-        """Build human-readable reasoning for the delivery plan."""
+        """
+        Build human-readable reasoning for the delivery plan.
+
+        Uses Claude for natural-language explanation when available,
+        falls back to a template.
+        """
+        if self.client:
+            try:
+                return self._build_reasoning_with_claude(routes, intelligence, resolved_conflicts)
+            except Exception as e:
+                logger.warning("Claude reasoning generation failed, using fallback: %s", e)
+
+        return self._build_reasoning_fallback(routes, intelligence, resolved_conflicts)
+
+    def _build_reasoning_with_claude(
+        self,
+        routes: list[Route],
+        intelligence: dict[str, list[AgentReport]],
+        resolved_conflicts: list[dict] | None = None,
+    ) -> str:
+        """Use Claude to generate human-readable reasoning."""
+        # Build context for Claude
+        blocked = self.road_network.get_blocked_edges()
+        damaged = self.road_network.get_damaged_edges()
+
+        context = {
+            "num_routes": len(routes),
+            "routes": [
+                {
+                    "destination": r.destination.to_dict() if r.destination else None,
+                    "distance_km": round(r.distance_m / 1000, 1),
+                    "duration_min": round(r.estimated_duration_min),
+                    "hazards_avoided": r.hazards_avoided,
+                    "confidence": r.confidence,
+                }
+                for r in routes
+            ],
+            "intelligence_summary": {
+                source: len(reports) for source, reports in intelligence.items()
+            },
+            "blocked_roads": len(blocked),
+            "damaged_roads": len(damaged),
+            "conflicts_resolved": len(resolved_conflicts) if resolved_conflicts else 0,
+        }
+
+        response = self.client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=CLAUDE_MAX_TOKENS,
+            system=self.get_system_prompt(),
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        "Generate a concise briefing for a field relief team based on this delivery plan data. "
+                        "Use markdown headings and bullet points. Keep it under 300 words. "
+                        "Focus on: what data sources informed the plan, key hazards, recommended routes, and confidence levels.\n\n"
+                        f"{json.dumps(context, indent=2)}"
+                    ),
+                }
+            ],
+        )
+
+        return response.content[0].text.strip()
+
+    def _build_reasoning_fallback(
+        self,
+        routes: list[Route],
+        intelligence: dict[str, list[AgentReport]],
+        resolved_conflicts: list[dict] | None = None,
+    ) -> str:
+        """Template-based reasoning fallback."""
         parts = []
 
         # Report on data sources
@@ -357,6 +659,17 @@ class Orchestrator:
             for edge in blocked[:5]:
                 parts.append(f"- {edge.get('name', 'Unknown')} (confidence: {edge.get('confidence', 0):.0%})")
 
+        # Report on conflict resolutions
+        if resolved_conflicts:
+            parts.append(f"\n### Conflicts Resolved ({len(resolved_conflicts)})")
+            for conflict in resolved_conflicts:
+                parts.append(
+                    f"- {conflict.get('road_id', 'Unknown')}: "
+                    f"{conflict.get('resolved_status', '?')} "
+                    f"(confidence: {conflict.get('confidence', 0):.0%}) "
+                    f"[{conflict.get('resolved_by', 'unknown')}]"
+                )
+
         # Report on routes
         if routes:
             parts.append("\n## Recommended Deliveries")
@@ -371,11 +684,14 @@ class Orchestrator:
 
         return "\n".join(parts)
 
+    # ------------------------------------------------------------------
+    # Scenario time management
+    # ------------------------------------------------------------------
+
     def set_scenario_time(self, time: datetime) -> None:
         """Set the current scenario time."""
         self._previous_scenario_time = self.scenario_time
         self.scenario_time = time
-        # Clear cached intelligence
         self._last_intelligence = {}
 
     async def gather_new_intelligence(self) -> dict[str, list[AgentReport]]:
@@ -384,14 +700,11 @@ class Orchestrator:
 
         Returns reports that occurred between _previous_scenario_time and scenario_time.
         """
-        # Gather all intelligence up to current time
         all_intelligence = await self.gather_all_intelligence()
 
-        # If no previous time, return all (first call)
         if self._previous_scenario_time is None:
             return all_intelligence
 
-        # Filter to only reports between previous and current time
         new_intelligence = {}
         for source, reports in all_intelligence.items():
             new_reports = [
@@ -412,6 +725,10 @@ class Orchestrator:
     def load_road_network(self, geojson_path: str | Path) -> None:
         """Load road network from GeoJSON file."""
         self.road_network.load_from_geojson(geojson_path)
+
+    # ------------------------------------------------------------------
+    # Claude tool definitions & system prompt
+    # ------------------------------------------------------------------
 
     def get_tool_definitions(self) -> list[dict]:
         """
@@ -491,8 +808,6 @@ class Orchestrator:
     def get_system_prompt(self) -> str:
         """
         Get system prompt for Claude orchestrator.
-
-        This would be used when integrating with Claude API.
         """
         return """You are a disaster relief logistics coordinator AI assistant. Your role is to help relief organizations efficiently route supplies to people in need during Hurricane Helene's aftermath in Western North Carolina.
 

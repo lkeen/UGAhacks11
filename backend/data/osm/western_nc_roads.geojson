@@ -12,18 +12,9 @@
       "geometry": {
         "type": "LineString",
         "coordinates": [
-          [
-            -82.6,
-            35.6
-          ],
-          [
-            -82.5,
-            35.6
-          ],
-          [
-            -82.4,
-            35.6
-          ]
+          [-82.6, 35.6],
+          [-82.5, 35.6],
+          [-82.4, 35.6]
         ]
       }
     },
@@ -38,18 +29,9 @@
       "geometry": {
         "type": "LineString",
         "coordinates": [
-          [
-            -82.55,
-            35.6
-          ],
-          [
-            -82.55,
-            35.5
-          ],
-          [
-            -82.5,
-            35.4
-          ]
+          [-82.55, 35.6],
+          [-82.55, 35.5],
+          [-82.5, 35.4]
         ]
       }
     },
@@ -64,18 +46,9 @@
       "geometry": {
         "type": "LineString",
         "coordinates": [
-          [
-            -82.55,
-            35.6
-          ],
-          [
-            -82.53,
-            35.5
-          ],
-          [
-            -82.52,
-            35.45
-          ]
+          [-82.55, 35.6],
+          [-82.53, 35.5],
+          [-82.52, 35.45]
         ]
       }
     },
@@ -90,18 +63,9 @@
       "geometry": {
         "type": "LineString",
         "coordinates": [
-          [
-            -82.6,
-            35.55
-          ],
-          [
-            -82.7,
-            35.45
-          ],
-          [
-            -82.75,
-            35.3
-          ]
+          [-82.6, 35.55],
+          [-82.7, 35.45],
+          [-82.75, 35.3]
         ]
       }
     },
@@ -116,18 +80,154 @@
       "geometry": {
         "type": "LineString",
         "coordinates": [
-          [
-            -82.56,
-            35.595
-          ],
-          [
-            -82.55,
-            35.595
-          ],
-          [
-            -82.54,
-            35.595
-          ]
+          [-82.56, 35.595],
+          [-82.55, 35.595],
+          [-82.54, 35.595]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osmid": "i26-airport",
+        "name": "Interstate 26 (Airport Connector)",
+        "highway": "motorway",
+        "length": 18000
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-82.5418, 35.4363],
+          [-82.54, 35.48],
+          [-82.54, 35.54],
+          [-82.55, 35.595]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osmid": "us74-avl-west",
+        "name": "US 74 West (to Asheville HS)",
+        "highway": "primary",
+        "length": 26000
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-82.55, 35.595],
+          [-82.6, 35.58],
+          [-82.7, 35.56],
+          [-82.8299, 35.5312]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osmid": "bingham-rd",
+        "name": "Bingham Road (to Buncombe Schools)",
+        "highway": "secondary",
+        "length": 8500
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-82.55, 35.595],
+          [-82.58, 35.57],
+          [-82.615, 35.542]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osmid": "us25-hville",
+        "name": "US 25 (Airport to Hendersonville)",
+        "highway": "primary",
+        "length": 7500
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-82.5418, 35.4363],
+          [-82.5, 35.44],
+          [-82.4573, 35.4368]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osmid": "i40-east-bm",
+        "name": "Interstate 40 East (to Black Mountain)",
+        "highway": "motorway",
+        "length": 35000
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-82.55, 35.595],
+          [-82.4, 35.6],
+          [-82.3, 35.63],
+          [-82.1557, 35.6587]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osmid": "nc191-brevard",
+        "name": "NC 191 / US 276 (to Brevard)",
+        "highway": "secondary",
+        "length": 45000
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-82.55, 35.595],
+          [-82.6, 35.55],
+          [-82.65, 35.45],
+          [-82.7, 35.35],
+          [-82.7239, 35.2551]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osmid": "us19-cherokee",
+        "name": "US 19/23 (to Cherokee)",
+        "highway": "primary",
+        "length": 72000
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-82.55, 35.595],
+          [-82.7, 35.56],
+          [-82.9, 35.48],
+          [-83.1, 35.42],
+          [-83.2215, 35.3736]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osmid": "us321-boone",
+        "name": "US 321 / I-26 N (to Boone/Watauga)",
+        "highway": "primary",
+        "length": 95000
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-82.55, 35.595],
+          [-82.4, 35.7],
+          [-82.1, 35.8],
+          [-81.8, 35.87],
+          [-81.5388, 35.9132]
         ]
       }
     }

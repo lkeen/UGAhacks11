@@ -185,7 +185,7 @@ class OfficialDataAgent(BaseAgent):
     ) -> AgentReport | None:
         """Process shelter information into an AgentReport."""
         # Parse opening time
-        if "opened_at" in shelter:
+        if shelter.get("opened_at") is not None:
             opened_time = datetime.fromisoformat(
                 shelter["opened_at"].replace("Z", "+00:00")
             )
@@ -286,7 +286,7 @@ class OfficialDataAgent(BaseAgent):
 
         for shelter in self._shelters:
             # Check if opened
-            if "opened_at" in shelter:
+            if shelter.get("opened_at") is not None:
                 opened_time = datetime.fromisoformat(
                     shelter["opened_at"].replace("Z", "+00:00")
                 )

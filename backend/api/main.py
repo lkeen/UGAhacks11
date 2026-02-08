@@ -109,6 +109,11 @@ async def process_query(request: QueryRequest):
         response = await orchestrator.process_query(request.query)
         return response
     except Exception as e:
+        # Graceful degradation: if Claude API fails mid-pipeline,
+        # the orchestrator already falls back internally per method.
+        # This catches unexpected errors in the overall pipeline.
+        import logging
+        logging.getLogger(__name__).error("Query processing error: %s", e, exc_info=True)
         raise HTTPException(500, f"Error processing query: {str(e)}")
 
 
