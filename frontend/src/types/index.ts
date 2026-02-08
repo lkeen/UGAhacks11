@@ -149,6 +149,15 @@ export interface Road {
 // Routes & Deliveries
 // ============================================================================
 
+export interface DirectionStep {
+  instruction: string;
+  name: string;
+  distance_m: number;
+  duration_s: number;
+  maneuver_type: string;
+  maneuver_modifier: string;
+}
+
 export interface Route {
   id: string;
   origin: Location;
@@ -159,14 +168,17 @@ export interface Route {
   hazards_avoided: HazardInfo[];
   confidence: number;
   reasoning: string;
+  directions: DirectionStep[];
   created_at: string;
 }
 
 export interface HazardInfo {
   type: EventType;
   location: Location;
-  description: string;
-  source: DataSource;
+  name?: string;
+  description?: string;
+  source?: DataSource;
+  confidence?: number;
 }
 
 export interface Delivery {

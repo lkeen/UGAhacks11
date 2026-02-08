@@ -52,6 +52,7 @@ export default function Home() {
   const [highlightedEventId, setHighlightedEventId] = useState<number | string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
 
   // Map state
   const [mapView, setMapView] = useState(DEFAULT_VIEW);
@@ -106,6 +107,7 @@ export default function Home() {
   const handleQuerySubmit = async (query: string) => {
     setIsQueryLoading(true);
     setError(null);
+    setSelectedRouteId(null);
     addLogEntry('orchestrator', `Processing query: "${query}"`, 'info');
 
     try {
@@ -356,16 +358,19 @@ export default function Home() {
             onShelterClick={handleShelterSelect}
             highlightedEventType={highlightedEventType}
             highlightedEventId={highlightedEventId}
-          />
-
-          {/* Query panel overlay */}
-          <QueryPanel
-            onSubmit={handleQuerySubmit}
-            isLoading={isQueryLoading}
-            response={queryResponse}
-            error={error}
+            selectedRouteId={selectedRouteId}
           />
         </div>
+
+        {/* Delivery Planner panel */}
+        <QueryPanel
+          onSubmit={handleQuerySubmit}
+          isLoading={isQueryLoading}
+          response={queryResponse}
+          error={error}
+          selectedRouteId={selectedRouteId}
+          onRouteSelect={setSelectedRouteId}
+        />
 
         {/* Right panel - Agent Logs */}
         <AgentLogs

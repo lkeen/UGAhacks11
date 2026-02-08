@@ -106,9 +106,10 @@ class TestRoadNetworkManager:
         result = network.find_route(start, end)
 
         assert result is not None
-        path, weight = result
-        assert len(path) == 3
+        node_path, weight, detailed_path = result
+        assert len(node_path) == 3
         assert weight == 2000  # Two edges of 1000 each
+        assert len(detailed_path) >= len(node_path)  # Detailed has at least as many points
 
     def test_find_route_avoids_blocked(self, network):
         """Test that routing avoids blocked edges."""

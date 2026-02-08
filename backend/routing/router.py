@@ -1,11 +1,15 @@
 """Route planning and optimization."""
 
+import logging
 import math
 from dataclasses import dataclass, field
 from datetime import datetime
 
 from backend.agents.base_agent import Location
 from .road_network import RoadNetworkManager
+from .osrm_client import get_road_route
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -20,6 +24,7 @@ class Route:
     hazards_avoided: list[dict] = field(default_factory=list)
     confidence: float = 1.0
     reasoning: str = ""
+    directions: list[dict] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.utcnow)
 
     def to_dict(self) -> dict:
@@ -42,6 +47,7 @@ class Route:
             "hazards_avoided": self.hazards_avoided,
             "confidence": sanitize_float(self.confidence),
             "reasoning": self.reasoning,
+            "directions": self.directions,
             "created_at": self.created_at.isoformat(),
         }
 
@@ -91,32 +97,45 @@ class Router:
         if result is None:
             return self._plan_direct_route(origin, destination)
 
-        path, total_weight = result
+        node_path, total_weight, detailed_geometry = result
 
         # Generate route ID
         self._route_counter += 1
         route_id = f"route-{self._route_counter:04d}"
 
-        # Calculate distance and duration
-        distance_m = self._calculate_path_distance(path)
-        duration_min = self._estimate_duration(path, distance_m)
+        # Use node_path for edge-level analysis (hazards, confidence)
+        hazards_avoided = self._get_avoided_hazards(node_path)
+        reasoning = self._build_reasoning(node_path, hazards_avoided)
 
-        # Get hazards that were avoided
-        hazards_avoided = self._get_avoided_hazards(path)
+        # Try OSRM for real road geometry
+        osrm_waypoints = [(origin.lon, origin.lat)] + list(node_path[1:-1]) + [(destination.lon, destination.lat)]
+        osrm_result = get_road_route(osrm_waypoints)
 
-        # Build reasoning
-        reasoning = self._build_reasoning(path, hazards_avoided)
+        if osrm_result:
+            waypoints = osrm_result["coordinates"]
+            distance_m = osrm_result["distance_m"]
+            duration_min = osrm_result["duration_s"] / 60.0
+            directions = osrm_result["steps"]
+            logger.info("OSRM route: %.1f km, %.0f min, %d waypoints",
+                        distance_m / 1000, duration_min, len(waypoints))
+        else:
+            # Fallback to graph geometry
+            waypoints = detailed_geometry
+            distance_m = self._calculate_path_distance(node_path)
+            duration_min = self._estimate_duration(node_path, distance_m)
+            directions = []
 
         return Route(
             id=route_id,
             origin=origin,
             destination=destination,
-            waypoints=path,
+            waypoints=waypoints,
             distance_m=distance_m,
             estimated_duration_min=duration_min,
             hazards_avoided=hazards_avoided,
-            confidence=self._calculate_route_confidence(path),
+            confidence=self._calculate_route_confidence(node_path),
             reasoning=reasoning,
+            directions=directions,
         )
 
     def plan_multi_stop_route(
@@ -279,19 +298,35 @@ class Router:
         destination: Location,
     ) -> Route:
         """
-        Create a direct-distance fallback route when graph routing fails.
+        Create a fallback route when graph routing fails.
 
-        Uses haversine distance and marks confidence lower to indicate
-        this is an estimate without verified road data.
+        Tries OSRM for real road geometry first, falls back to
+        haversine straight-line with lower confidence.
         """
-        distance_m = self._haversine_distance(
-            origin.lat, origin.lon, destination.lat, destination.lon
-        )
-
         self._route_counter += 1
         route_id = f"route-{self._route_counter:04d}"
 
-        # Estimate duration at reduced speed (30 km/h) for disaster conditions
+        # Try OSRM for real road geometry even without graph path
+        osrm_result = get_road_route([(origin.lon, origin.lat), (destination.lon, destination.lat)])
+
+        if osrm_result:
+            return Route(
+                id=route_id,
+                origin=origin,
+                destination=destination,
+                waypoints=osrm_result["coordinates"],
+                distance_m=osrm_result["distance_m"],
+                estimated_duration_min=osrm_result["duration_s"] / 60.0,
+                hazards_avoided=[],
+                confidence=0.7,
+                reasoning="Route via OSRM (road conditions not verified in hazard graph). Use caution.",
+                directions=osrm_result["steps"],
+            )
+
+        # Final fallback: straight-line haversine
+        distance_m = self._haversine_distance(
+            origin.lat, origin.lon, destination.lat, destination.lon
+        )
         duration_min = (distance_m / 1000) / self.SPEED_URBAN * 60
 
         return Route(
@@ -303,7 +338,7 @@ class Router:
             estimated_duration_min=duration_min,
             hazards_avoided=[],
             confidence=0.5,
-            reasoning="Direct-distance estimate (no verified road path available). Actual route may differ.",
+            reasoning="Direct-distance estimate (no road data available). Actual route may differ.",
         )
 
     @staticmethod

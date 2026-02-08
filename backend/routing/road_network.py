@@ -305,7 +305,7 @@ class RoadNetworkManager:
         start: Location,
         end: Location,
         avoid_risk_level: float = 0.5,
-    ) -> tuple[list[tuple], float] | None:
+    ) -> tuple[list[tuple], float, list[tuple]] | None:
         """
         Find optimal route between two locations.
 
@@ -315,7 +315,9 @@ class RoadNetworkManager:
             avoid_risk_level: Avoid edges with confidence below this (0-1)
 
         Returns:
-            Tuple of (path as list of nodes, total weight) or None if no path
+            Tuple of (node_path, total_weight, detailed_geometry) or None.
+            node_path: graph nodes for edge lookups.
+            detailed_geometry: full road coordinates for map display.
         """
         start_node = self.get_nearest_node(start)
         end_node = self.get_nearest_node(end)
@@ -334,9 +336,56 @@ class RoadNetworkManager:
             if total_weight == float("inf"):
                 return None
 
-            return path, total_weight
+            # Expand node path into full road geometry
+            detailed_path = self._expand_path_geometry(path)
+
+            return path, total_weight, detailed_path
         except nx.NetworkXNoPath:
             return None
+
+    def _expand_path_geometry(self, path: list[tuple]) -> list[tuple]:
+        """
+        Expand a node-only path into full road geometry using edge coordinates.
+
+        Each edge in the graph stores a ``geometry`` list of intermediate
+        [lon, lat] coordinates from the original GeoJSON.  This method
+        stitches those together so the resulting path follows the actual
+        road shape instead of jumping node-to-node in straight lines.
+
+        Args:
+            path: List of graph node tuples (lon, lat).
+
+        Returns:
+            List of (lon, lat) tuples with all intermediate coordinates.
+        """
+        if len(path) < 2:
+            return list(path)
+
+        detailed: list[tuple] = []
+
+        for i in range(len(path) - 1):
+            u, v = path[i], path[i + 1]
+            edge_data = self.graph.edges.get((u, v), {})
+            geometry = edge_data.get("geometry")
+
+            if geometry and len(geometry) >= 2:
+                coords = [tuple(c[:2]) for c in geometry]
+                # The stored geometry may be forward (u→v) or reverse (v→u).
+                # Pick the direction that starts closest to u.
+                if coords[0] != u and coords[-1] == u:
+                    coords = list(reversed(coords))
+
+                # Avoid duplicating the junction node between consecutive edges
+                if detailed and coords[0] == detailed[-1]:
+                    coords = coords[1:]
+                detailed.extend(coords)
+            else:
+                # No intermediate geometry — fall back to the node itself
+                if not detailed or u != detailed[-1]:
+                    detailed.append(u)
+                detailed.append(v)
+
+        return detailed
 
     def get_blocked_edges(self) -> list[dict]:
         """Get all edges currently marked as blocked."""

@@ -321,7 +321,8 @@ export function locationToLngLat(location: { lat: number; lon: number }): [numbe
 /**
  * Format duration in minutes to human-readable string
  */
-export function formatDuration(minutes: number): string {
+export function formatDuration(minutes: number | null | undefined): string {
+  if (minutes == null || isNaN(minutes)) return 'N/A';
   if (minutes < 60) {
     return `${Math.round(minutes)} min`;
   }
@@ -333,7 +334,8 @@ export function formatDuration(minutes: number): string {
 /**
  * Format distance in meters to human-readable string
  */
-export function formatDistance(meters: number): string {
+export function formatDistance(meters: number | null | undefined): string {
+  if (meters == null || isNaN(meters)) return 'N/A';
   if (meters < 1000) {
     return `${Math.round(meters)} m`;
   }

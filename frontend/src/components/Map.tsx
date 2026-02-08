@@ -60,6 +60,14 @@ interface MapProps {
   onShelterClick: (shelter: Shelter) => void;
   highlightedEventType: EventType | null;
   highlightedEventId: number | string | null;
+  selectedRouteId: string | null;
+}
+
+/** Convert waypoints to [lon, lat] arrays regardless of input format */
+function toCoords(waypoints: any[]): [number, number][] {
+  return waypoints.map((wp: any): [number, number] =>
+    Array.isArray(wp) ? [wp[0], wp[1]] : [wp.lon, wp.lat]
+  );
 }
 
 export function Map({
@@ -72,6 +80,7 @@ export function Map({
   onShelterClick,
   highlightedEventType,
   highlightedEventId,
+  selectedRouteId,
 }: MapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -201,21 +210,21 @@ export function Map({
     });
   }, [events, mapLoaded, highlightedEventType, highlightedEventId]);
 
-  // Add route lines
+  // Add route lines with selected-route highlighting
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
-    // Remove existing route layers
-    if (map.current.getLayer('routes')) {
-      map.current.removeLayer('routes');
-    }
-    if (map.current.getSource('routes')) {
-      map.current.removeSource('routes');
-    }
+    // Remove existing route layers and sources
+    ['routes-selected', 'routes'].forEach((id) => {
+      if (map.current!.getLayer(id)) map.current!.removeLayer(id);
+    });
+    ['routes-selected', 'routes'].forEach((id) => {
+      if (map.current!.getSource(id)) map.current!.removeSource(id);
+    });
 
     if (routes.length === 0) return;
 
-    // Convert routes to GeoJSON
+    // Convert routes to GeoJSON features
     const routeFeatures = routes.map((route, index) => ({
       type: 'Feature' as const,
       properties: {
@@ -225,7 +234,7 @@ export function Map({
       },
       geometry: {
         type: 'LineString' as const,
-        coordinates: route.waypoints,
+        coordinates: toCoords(route.waypoints),
       },
     }));
 
@@ -237,6 +246,7 @@ export function Map({
       },
     });
 
+    // All-routes layer: dim when a route is selected, normal otherwise
     map.current.addLayer({
       id: 'routes',
       type: 'line',
@@ -246,12 +256,61 @@ export function Map({
         'line-cap': 'round',
       },
       paint: {
-        'line-color': '#3b82f6',
-        'line-width': 4,
-        'line-opacity': 0.8,
+        'line-color': selectedRouteId ? '#94a3b8' : '#3b82f6',
+        'line-width': selectedRouteId ? 2 : 4,
+        'line-opacity': selectedRouteId ? 0.4 : 0.8,
       },
     });
-  }, [routes, mapLoaded]);
+
+    // Selected-route highlight layer
+    if (selectedRouteId) {
+      const selectedRoute = routes.find((r) => r.id === selectedRouteId);
+      if (selectedRoute) {
+        const coords = toCoords(selectedRoute.waypoints);
+
+        map.current.addSource('routes-selected', {
+          type: 'geojson',
+          data: {
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature' as const,
+                properties: { id: selectedRoute.id },
+                geometry: {
+                  type: 'LineString' as const,
+                  coordinates: coords,
+                },
+              },
+            ],
+          },
+        });
+
+        map.current.addLayer({
+          id: 'routes-selected',
+          type: 'line',
+          source: 'routes-selected',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#3b82f6',
+            'line-width': 6,
+            'line-opacity': 0.9,
+          },
+        });
+
+        // Fly to fit selected route bounds
+        if (coords.length >= 2) {
+          const bounds = coords.reduce(
+            (b, coord) => b.extend(coord as [number, number]),
+            new maplibregl.LngLatBounds(coords[0] as [number, number], coords[0] as [number, number])
+          );
+          map.current.fitBounds(bounds, { padding: 80, duration: 1000 });
+        }
+      }
+    }
+  }, [routes, mapLoaded, selectedRouteId]);
 
   return (
     <div className="relative w-full h-full">
