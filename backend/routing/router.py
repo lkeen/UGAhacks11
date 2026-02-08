@@ -7,7 +7,8 @@ from datetime import datetime
 
 from backend.agents.base_agent import Location
 from .road_network import RoadNetworkManager
-from .osrm_client import get_road_route
+from .ors_client import get_road_route
+from .hazard_polygons import collect_hazard_polygons
 
 logger = logging.getLogger(__name__)
 
@@ -64,15 +65,21 @@ class Router:
     SPEED_DAMAGED = 20.0
     SPEED_URBAN = 30.0
 
-    def __init__(self, network: RoadNetworkManager):
+    def __init__(self, network: RoadNetworkManager, events_data: list[dict] | None = None):
         """
         Initialize router with road network.
 
         Args:
             network: RoadNetworkManager instance with loaded road data
+            events_data: Raw event dicts (from helene_timeline.json) for hazard polygon extraction
         """
         self.network = network
         self._route_counter = 0
+        self._events_data = events_data or []
+
+    def set_events_data(self, events_data: list[dict]) -> None:
+        """Update the raw events data used for hazard polygon collection."""
+        self._events_data = events_data
 
     def plan_route(
         self,
@@ -107,16 +114,21 @@ class Router:
         hazards_avoided = self._get_avoided_hazards(node_path)
         reasoning = self._build_reasoning(node_path, hazards_avoided)
 
-        # Try OSRM for real road geometry
-        osrm_waypoints = [(origin.lon, origin.lat)] + list(node_path[1:-1]) + [(destination.lon, destination.lat)]
-        osrm_result = get_road_route(osrm_waypoints)
+        # Try ORS for real road geometry with hazard avoidance
+        # Only pass origin + destination — ORS finds its own road path,
+        # and avoid_polygons ensures it routes around hazard zones.
+        endpoints = [(origin.lon, origin.lat), (destination.lon, destination.lat)]
+        avoid_polygons = collect_hazard_polygons(
+            self._events_data, route_endpoints=endpoints,
+        ) if self._events_data else None
+        ors_result = get_road_route(endpoints, avoid_polygons=avoid_polygons)
 
-        if osrm_result:
-            waypoints = osrm_result["coordinates"]
-            distance_m = osrm_result["distance_m"]
-            duration_min = osrm_result["duration_s"] / 60.0
-            directions = osrm_result["steps"]
-            logger.info("OSRM route: %.1f km, %.0f min, %d waypoints",
+        if ors_result:
+            waypoints = ors_result["coordinates"]
+            distance_m = ors_result["distance_m"]
+            duration_min = ors_result["duration_s"] / 60.0
+            directions = ors_result["steps"]
+            logger.info("ORS route: %.1f km, %.0f min, %d waypoints",
                         distance_m / 1000, duration_min, len(waypoints))
         else:
             # Fallback to graph geometry
@@ -306,21 +318,25 @@ class Router:
         self._route_counter += 1
         route_id = f"route-{self._route_counter:04d}"
 
-        # Try OSRM for real road geometry even without graph path
-        osrm_result = get_road_route([(origin.lon, origin.lat), (destination.lon, destination.lat)])
+        # Try ORS for real road geometry even without graph path
+        endpoints = [(origin.lon, origin.lat), (destination.lon, destination.lat)]
+        avoid_polygons = collect_hazard_polygons(
+            self._events_data, route_endpoints=endpoints,
+        ) if self._events_data else None
+        ors_result = get_road_route(endpoints, avoid_polygons=avoid_polygons)
 
-        if osrm_result:
+        if ors_result:
             return Route(
                 id=route_id,
                 origin=origin,
                 destination=destination,
-                waypoints=osrm_result["coordinates"],
-                distance_m=osrm_result["distance_m"],
-                estimated_duration_min=osrm_result["duration_s"] / 60.0,
+                waypoints=ors_result["coordinates"],
+                distance_m=ors_result["distance_m"],
+                estimated_duration_min=ors_result["duration_s"] / 60.0,
                 hazards_avoided=[],
                 confidence=0.7,
-                reasoning="Route via OSRM (road conditions not verified in hazard graph). Use caution.",
-                directions=osrm_result["steps"],
+                reasoning="Route via ORS (road conditions not verified in hazard graph). Use caution.",
+                directions=ors_result["steps"],
             )
 
         # Final fallback: straight-line haversine

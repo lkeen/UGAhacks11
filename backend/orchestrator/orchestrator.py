@@ -88,8 +88,9 @@ class Orchestrator:
             road_network_manager=self.road_network
         )
 
-        # Initialize router
-        self.router = Router(self.road_network)
+        # Initialize router with event data for hazard polygon avoidance
+        events_data = self._load_timeline_events()
+        self.router = Router(self.road_network, events_data=events_data)
 
         # Scenario state
         self.scenario_time: datetime = datetime.fromisoformat("2024-09-27T03:00:00+00:00")
@@ -153,6 +154,9 @@ class Orchestrator:
                 updated = self.road_network.apply_agent_report(report)
                 total_updated += updated
 
+        # Refresh router's event data for polygon avoidance
+        self.router.set_events_data(self._load_timeline_events())
+
         return total_updated
 
     # ------------------------------------------------------------------
@@ -190,13 +194,19 @@ class Orchestrator:
             )
             resolved_conflicts.append(resolution)
 
-        # Step 5: Get shelter needs
+        # Step 5: Check we have an origin
+        if parsed.get("origin") is None:
+            response = self._generate_response(parsed, [], intelligence, resolved_conflicts)
+            response["error"] = "Could not determine your starting location. Please include a place name, address, or landmark in your message."
+            return response
+
+        # Step 6: Get shelter needs
         shelters = self._get_priority_shelters()
 
-        # Step 6: Plan routes
+        # Step 7: Plan routes
         routes = self._plan_delivery_routes(parsed, shelters)
 
-        # Step 7: Generate response with Claude reasoning
+        # Step 8: Generate response with Claude reasoning
         response = self._generate_response(parsed, routes, intelligence, resolved_conflicts)
 
         return response
@@ -211,33 +221,59 @@ class Orchestrator:
 
         Falls back to keyword-based parsing if Claude API is unavailable.
         """
+        parsed = None
         if self.client:
             try:
-                return self._parse_query_with_claude(query)
+                parsed = self._parse_query_with_claude(query)
             except Exception as e:
                 logger.warning("Claude query parsing failed, using fallback: %s", e)
 
-        return self._parse_query_fallback(query)
+        if parsed is None:
+            parsed = self._parse_query_fallback(query)
+
+        # Last resort: if still no origin, try keyword matching
+        if parsed.get("origin") is None:
+            parsed["origin"] = self._match_origin_from_text(query)
+
+        return parsed
 
     def _parse_query_with_claude(self, query: str) -> dict:
         """Call Claude to extract structured info from a natural language query."""
         response = self.client.messages.create(
             model=CLAUDE_MODEL,
             max_tokens=CLAUDE_MAX_TOKENS,
-            system="You are a disaster relief logistics parser. Extract structured data from supply routing queries. Respond ONLY with valid JSON, no markdown fences.",
+            system=(
+                "You are a geocoding and logistics parser. "
+                "Your job is to read a user's message, figure out WHERE they are, "
+                "and WHAT supplies they have. "
+                "Respond ONLY with valid JSON, no markdown fences."
+            ),
             messages=[
                 {
                     "role": "user",
                     "content": (
-                        "Extract the following from this disaster relief query:\n"
-                        "- intent: one of 'route_supplies', 'check_status', 'find_shelter'\n"
-                        "- supplies: dict mapping supply type (water_cases, blankets, medical_kits, food_cases) to integer quantity\n"
-                        "- origin_description: string describing where supplies are\n"
-                        "- origin_lat: float latitude if identifiable (Asheville=35.5951, Asheville airport=35.4363, Hendersonville=35.4368)\n"
-                        "- origin_lon: float longitude if identifiable (Asheville=-82.5515, Asheville airport=-82.5418, Hendersonville=-82.4573)\n"
+                        "Read this disaster relief message and extract:\n\n"
+                        "- origin_description: the place the user says they ARE or where their supplies are\n"
+                        "- origin_lat: the latitude of that place (float). Use your geographic knowledge "
+                        "to look up / estimate the coordinates of whatever location is mentioned. "
+                        "This could be a city, a store, a staging area, a warehouse, a road, an "
+                        "intersection, an address — anything. Estimate as accurately as you can. "
+                        "The disaster area is Western North Carolina.\n"
+                        "- origin_lon: the longitude of that place (float)\n"
+                        "- supplies: dict of supply_type -> quantity (int). Types: "
+                        "water_cases, blankets, medical_kits, food_cases, generators, fuel, "
+                        "diapers, baby_formula, pet_supplies, hygiene_kits, cots, medications, "
+                        "charging_stations. If a supply is mentioned without a number, use 1.\n"
                         "- urgency: one of 'low', 'medium', 'high', 'critical'\n"
-                        "- constraints: list of strings (e.g. 'avoid flooding', 'prefer highway')\n\n"
-                        f"Query: {query}\n\n"
+                        "- constraints: list of strings (e.g. 'avoid flooding')\n"
+                        "- intent: one of 'route_supplies', 'check_status', 'find_shelter'\n\n"
+                        "RULES:\n"
+                        "- Do NOT default to any location. Only set origin_lat/origin_lon if "
+                        "the user actually mentions a place.\n"
+                        "- If the user does not mention any location, set origin_lat and "
+                        "origin_lon to null.\n"
+                        "- Do NOT assume the airport or any other default.\n\n"
+                        f"Message: {query}\n\n"
                         "JSON:"
                     ),
                 }
@@ -245,20 +281,18 @@ class Orchestrator:
         )
 
         raw = response.content[0].text.strip()
-        # Strip markdown code fences if present
         if raw.startswith("```"):
             raw = re.sub(r"^```(?:json)?\s*", "", raw)
             raw = re.sub(r"\s*```$", "", raw)
 
         data = json.loads(raw)
 
-        # Build the parsed dict in the standard format
         origin = None
-        if data.get("origin_lat") and data.get("origin_lon"):
+        if data.get("origin_lat") is not None and data.get("origin_lon") is not None:
             origin = Location(
-                lat=data["origin_lat"],
-                lon=data["origin_lon"],
-                address=data.get("origin_description"),
+                lat=float(data["origin_lat"]),
+                lon=float(data["origin_lon"]),
+                address=data.get("origin_description", ""),
             )
 
         parsed = {
@@ -271,13 +305,95 @@ class Orchestrator:
             "parsed_by": "claude",
         }
 
-        # Default origin if Claude couldn't determine one
-        if parsed["origin"] is None:
-            parsed["origin"] = Location(
-                lat=35.4363, lon=-82.5418, address="Asheville Regional Airport"
-            )
+        if parsed["origin"]:
+            logger.info("Parsed origin: %s (%.4f, %.4f) [claude]",
+                         parsed["origin"].address, parsed["origin"].lat,
+                         parsed["origin"].lon)
+        else:
+            logger.warning("Claude could not determine origin from query: %s", query)
 
         return parsed
+
+    def _match_origin_from_text(self, text: str) -> Location | None:
+        """
+        Try to match a starting location from free text.
+
+        Only matches against landmarks, depots, and town names — NOT shelters,
+        because shelters are destinations, not origins.
+        """
+        text_lower = text.lower()
+
+        # Only use landmarks and depots for origin matching (not shelters)
+        origin_locations = self._get_origin_locations()
+
+        # Build search entries sorted longest-keyword-first
+        search_entries = []
+        for loc in origin_locations:
+            name = loc["name"]
+            keywords = [name.lower()]
+            for word in name.lower().split():
+                if len(word) >= 4:
+                    keywords.append(word)
+            search_entries.append((keywords, loc))
+
+        search_entries.sort(key=lambda e: max(len(k) for k in e[0]), reverse=True)
+
+        for keywords, loc in search_entries:
+            for kw in keywords:
+                if kw in text_lower:
+                    return Location(
+                        lat=loc["lat"], lon=loc["lon"], address=loc["name"],
+                    )
+
+        return None
+
+    def _get_origin_locations(self) -> list[dict]:
+        """Get locations suitable as route origins (depots + landmarks, NOT shelters)."""
+        locations = []
+
+        # Add supply depots
+        shelters_path = self.data_dir / "shelters" / "shelters.json"
+        if shelters_path.exists():
+            with open(shelters_path) as f:
+                data = json.load(f)
+            for d in data.get("supply_depots", []):
+                loc = d.get("location", {})
+                locations.append({
+                    "name": d.get("name", ""),
+                    "lat": loc.get("lat"),
+                    "lon": loc.get("lon"),
+                })
+
+        # Town/city/landmark names only
+        locations.extend([
+            {"name": "Asheville Regional Airport", "lat": 35.4363, "lon": -82.5418},
+            {"name": "Asheville Downtown", "lat": 35.5951, "lon": -82.5515},
+            {"name": "Hendersonville", "lat": 35.4368, "lon": -82.4573},
+            {"name": "Black Mountain", "lat": 35.6178, "lon": -82.3215},
+            {"name": "Brevard", "lat": 35.2334, "lon": -82.7343},
+            {"name": "Boone", "lat": 36.2168, "lon": -81.6746},
+            {"name": "Cherokee", "lat": 35.4743, "lon": -83.3146},
+            {"name": "Mars Hill", "lat": 35.7965, "lon": -82.5493},
+            {"name": "Waynesville", "lat": 35.4887, "lon": -82.9887},
+            {"name": "Weaverville", "lat": 35.6973, "lon": -82.5607},
+            {"name": "Swannanoa", "lat": 35.5982, "lon": -82.3990},
+            {"name": "Canton", "lat": 35.5329, "lon": -82.8373},
+            {"name": "Marion", "lat": 35.6840, "lon": -82.0093},
+            {"name": "Burnsville", "lat": 35.9174, "lon": -82.2929},
+            {"name": "Spruce Pine", "lat": 35.9154, "lon": -82.0646},
+            {"name": "Sylva", "lat": 35.3734, "lon": -83.2257},
+            {"name": "Bryson City", "lat": 35.4312, "lon": -83.4496},
+            {"name": "Old Fort", "lat": 35.6276, "lon": -82.1735},
+            {"name": "Linville Falls", "lat": 35.9503, "lon": -81.9285},
+            {"name": "Fletcher", "lat": 35.4307, "lon": -82.5010},
+            {"name": "Arden", "lat": 35.4698, "lon": -82.5151},
+            {"name": "Enka", "lat": 35.5373, "lon": -82.6413},
+            {"name": "West Asheville", "lat": 35.5780, "lon": -82.5860},
+            {"name": "Biltmore Village", "lat": 35.5707, "lon": -82.5430},
+            {"name": "River Arts District", "lat": 35.5750, "lon": -82.5680},
+        ])
+
+        return [loc for loc in locations if loc.get("lat") and loc.get("lon")]
 
     def _parse_query_fallback(self, query: str) -> dict:
         """Keyword-based query parsing fallback."""
@@ -299,25 +415,41 @@ class Orchestrator:
             "blankets": r"(\d+)\s*blanket",
             "medical_kits": r"(\d+)\s*(?:medical\s+)?(?:kit|med)",
             "food_cases": r"(\d+)\s*(?:cases?\s+of\s+)?food",
+            "generators": r"(\d+)\s*generator",
+            "cots": r"(\d+)\s*cot",
+            "diapers": r"(\d+)\s*(?:packs?\s+of\s+)?diaper",
+            "medications": r"(\d+)\s*(?:medication|medicine)",
         }
         for supply_key, pattern in supply_patterns.items():
             match = re.search(pattern, query_lower)
             if match:
                 parsed["supplies"][supply_key] = int(match.group(1))
 
-        # Extract origin
-        if "asheville" in query_lower and "airport" in query_lower:
-            parsed["origin"] = Location(lat=35.4363, lon=-82.5418, address="Asheville Regional Airport")
-        elif "asheville" in query_lower:
-            parsed["origin"] = Location(lat=35.5951, lon=-82.5515, address="Asheville, NC")
-        elif "hendersonville" in query_lower:
-            parsed["origin"] = Location(lat=35.4368, lon=-82.4573, address="Hendersonville, NC")
-        elif "airport" in query_lower:
-            parsed["origin"] = Location(lat=35.4363, lon=-82.5418, address="Asheville Regional Airport")
+        # If no specific quantities found, try to detect supply types mentioned
+        if not parsed["supplies"]:
+            type_keywords = {
+                "water_cases": ["water"],
+                "food_cases": ["food", "mre"],
+                "blankets": ["blanket"],
+                "medical_kits": ["medical", "medicine", "med kit", "first aid"],
+                "generators": ["generator"],
+                "cots": ["cot", "bed"],
+                "diapers": ["diaper"],
+                "medications": ["medication", "medicine", "prescription"],
+            }
+            for supply_key, keywords in type_keywords.items():
+                if any(kw in query_lower for kw in keywords):
+                    parsed["supplies"][supply_key] = 1  # unknown qty
 
-        # Default origin
-        if parsed["origin"] is None:
-            parsed["origin"] = Location(lat=35.4363, lon=-82.5418, address="Asheville Regional Airport")
+        # Extract origin from the query text (keyword fallback — no defaults)
+        parsed["origin"] = self._match_origin_from_text(query)
+
+        if parsed["origin"]:
+            logger.info("Parsed origin: %s (%.4f, %.4f) [keyword]",
+                         parsed["origin"].address, parsed["origin"].lat,
+                         parsed["origin"].lon)
+        else:
+            logger.warning("Keyword parser could not determine origin from: %s", query)
 
         # Urgency hints
         if any(w in query_lower for w in ["urgent", "critical", "emergency", "asap"]):
@@ -439,6 +571,66 @@ class Orchestrator:
     # Shelter & route planning (unchanged)
     # ------------------------------------------------------------------
 
+    def _get_known_locations(self) -> list[dict]:
+        """Build a list of all known named locations from shelters, depots, and landmarks."""
+        locations = []
+
+        # Add shelters and depots
+        shelters_path = self.data_dir / "shelters" / "shelters.json"
+        if shelters_path.exists():
+            with open(shelters_path) as f:
+                data = json.load(f)
+            for s in data.get("shelters", []):
+                loc = s.get("location", {})
+                locations.append({
+                    "name": s.get("name", s.get("address", "")),
+                    "lat": loc.get("lat"),
+                    "lon": loc.get("lon"),
+                })
+            for d in data.get("supply_depots", []):
+                loc = d.get("location", {})
+                locations.append({
+                    "name": d.get("name", d.get("address", "")),
+                    "lat": loc.get("lat"),
+                    "lon": loc.get("lon"),
+                })
+
+        # Add well-known landmarks
+        landmarks = [
+            {"name": "Asheville Regional Airport", "lat": 35.4363, "lon": -82.5418},
+            {"name": "Asheville Downtown", "lat": 35.5951, "lon": -82.5515},
+            {"name": "Hendersonville", "lat": 35.4368, "lon": -82.4573},
+            {"name": "Black Mountain", "lat": 35.6178, "lon": -82.3215},
+            {"name": "Brevard", "lat": 35.2334, "lon": -82.7343},
+            {"name": "Boone", "lat": 36.2168, "lon": -81.6746},
+            {"name": "Cherokee", "lat": 35.4743, "lon": -83.3146},
+            {"name": "Mars Hill", "lat": 35.7965, "lon": -82.5493},
+            {"name": "Waynesville", "lat": 35.4887, "lon": -82.9887},
+            {"name": "Weaverville", "lat": 35.6973, "lon": -82.5607},
+            {"name": "Swannanoa", "lat": 35.5982, "lon": -82.3990},
+            {"name": "Canton", "lat": 35.5329, "lon": -82.8373},
+            {"name": "Marion", "lat": 35.6840, "lon": -82.0093},
+            {"name": "Burnsville", "lat": 35.9174, "lon": -82.2929},
+            {"name": "Spruce Pine", "lat": 35.9154, "lon": -82.0646},
+            {"name": "Sylva", "lat": 35.3734, "lon": -83.2257},
+            {"name": "Bryson City", "lat": 35.4312, "lon": -83.4496},
+            {"name": "Old Fort", "lat": 35.6276, "lon": -82.1735},
+            {"name": "Linville Falls", "lat": 35.9503, "lon": -81.9285},
+            {"name": "Ingles Distribution Center", "lat": 35.4522, "lon": -82.4701},
+        ]
+        locations.extend(landmarks)
+
+        return [loc for loc in locations if loc.get("lat") and loc.get("lon")]
+
+    def _load_timeline_events(self) -> list[dict]:
+        """Load raw event data from the timeline JSON for hazard polygon extraction."""
+        timeline_path = self.data_dir / "events" / "helene_timeline.json"
+        if not timeline_path.exists():
+            return []
+        with open(timeline_path) as f:
+            data = json.load(f)
+        return data.get("events", [])
+
     def _get_priority_shelters(self) -> list[dict]:
         """Get shelters prioritized by urgency of needs."""
         shelters_path = self.data_dir / "shelters" / "shelters.json"
@@ -472,6 +664,11 @@ class Orchestrator:
         """
         Plan delivery routes to shelters based on parsed query.
 
+        Ranks shelters by a combined score of:
+        - How many of their needs match the user's supplies
+        - How close they are to the origin (closer = better)
+        - How full they are (fuller = more urgent)
+
         Args:
             parsed_query: Parsed user query
             shelters: List of shelters to consider
@@ -485,27 +682,73 @@ class Orchestrator:
         if origin is None:
             return routes
 
-        # Match supplies to shelter needs
         supplies = parsed_query.get("supplies", {})
 
-        for shelter in shelters[:3]:  # Top 3 priority shelters
+        # Broader supply-to-need mapping
+        supply_to_need = {
+            "water_cases": "water",
+            "blankets": "blankets",
+            "medical_kits": "medical_supplies",
+            "food_cases": "food",
+            "generators": "generators",
+            "fuel": "fuel",
+            "diapers": "diapers",
+            "baby_formula": "baby_formula",
+            "pet_supplies": "pet_supplies",
+            "hygiene_kits": "hygiene_kits",
+            "cots": "cots",
+            "medications": "medications",
+            "charging_stations": "charging_stations",
+        }
+
+        # Score each shelter
+        scored_shelters = []
+        for shelter in shelters:
             shelter_needs = set(shelter.get("needs", []))
-            supply_types = set(supplies.keys())
-
-            supply_to_need = {
-                "water_cases": "water",
-                "blankets": "blankets",
-                "medical_kits": "medical_supplies",
-                "food_cases": "food",
-            }
-
-            matched_needs = []
-            for supply, need in supply_to_need.items():
-                if supply in supply_types and need in shelter_needs:
-                    matched_needs.append(need)
-
-            if not matched_needs:
+            if not shelter_needs:
                 continue
+
+            # Count matching needs
+            matched_needs = []
+            for supply_key, need_name in supply_to_need.items():
+                if supply_key in supplies and need_name in shelter_needs:
+                    matched_needs.append(need_name)
+
+            # If user specified supplies and none match, still consider
+            # shelters that have urgent needs (but lower score)
+            need_score = len(matched_needs) / max(len(supplies), 1) if supplies else 1.0
+
+            # Distance score (closer to origin = higher score)
+            sloc = shelter.get("location", {})
+            dist_deg = (
+                (sloc.get("lat", 0) - origin.lat) ** 2
+                + (sloc.get("lon", 0) - origin.lon) ** 2
+            ) ** 0.5
+            # Normalize: 0.01 deg ~ 1km. Max useful distance ~ 2 degrees
+            proximity_score = max(0.0, 1.0 - dist_deg / 2.0)
+
+            # Occupancy urgency (fuller = more urgent)
+            occupancy_ratio = (
+                shelter.get("current_occupancy", 0)
+                / max(shelter.get("capacity", 1), 1)
+            )
+
+            # Combined score: needs match is most important, then proximity, then urgency
+            total_score = (need_score * 0.4) + (proximity_score * 0.35) + (occupancy_ratio * 0.25)
+
+            scored_shelters.append({
+                "shelter": shelter,
+                "matched_needs": matched_needs,
+                "score": total_score,
+            })
+
+        # Sort by score descending
+        scored_shelters.sort(key=lambda x: x["score"], reverse=True)
+
+        # Plan routes to top shelters
+        for entry in scored_shelters[:3]:
+            shelter = entry["shelter"]
+            matched = entry["matched_needs"]
 
             dest = Location(
                 lat=shelter["location"]["lat"],
@@ -515,9 +758,10 @@ class Orchestrator:
 
             route = self.router.plan_route(origin, dest)
             if route:
+                needs_str = ", ".join(matched) if matched else ", ".join(shelter.get("needs", [])[:3])
                 route.reasoning = (
                     f"Delivering to {shelter['name']} - "
-                    f"needs: {', '.join(matched_needs)}. "
+                    f"needs: {needs_str}. "
                     f"Occupancy: {shelter.get('current_occupancy', 0)}/{shelter.get('capacity', 0)}. "
                     + route.reasoning
                 )

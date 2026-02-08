@@ -8,12 +8,11 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/data/events:/app/backend/data/events:ro
-      - ./backend/data/shelters:/app/backend/data/shelters:ro
-      - ./backend/data/osm:/app/backend/data/osm
-      - ./backend/data/satellite:/app/backend/data/satellite
+      - ./backend:/app/backend
+      - ./.env:/app/.env:ro
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ORS_API_KEY=${ORS_API_KEY}
       - DATABASE_URL=sqlite:///backend/data/disaster_relief.db
     command: >
       sh -c "python scripts/init_database.py &&

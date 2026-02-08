@@ -16,47 +16,238 @@
       "id": "evt-001",
       "timestamp": "2024-09-27T02:30:00Z",
       "type": "flooding",
-      "location": {"lat": 35.5951, "lon": -82.5515},
+      "location": {
+        "lat": 35.5951,
+        "lon": -82.5515
+      },
       "description": "French Broad River rising rapidly through downtown Asheville. Water entering River Arts District.",
       "source": "twitter",
       "confidence": 0.75,
-      "corroborations": 5
+      "corroborations": 5,
+      "affected_polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -82.5515,
+              35.599592
+            ],
+            [
+              -82.547594,
+              35.598276
+            ],
+            [
+              -82.545976,
+              35.5951
+            ],
+            [
+              -82.547594,
+              35.591924
+            ],
+            [
+              -82.5515,
+              35.590608
+            ],
+            [
+              -82.555406,
+              35.591924
+            ],
+            [
+              -82.557024,
+              35.5951
+            ],
+            [
+              -82.555406,
+              35.598276
+            ],
+            [
+              -82.5515,
+              35.599592
+            ]
+          ]
+        ]
+      }
     },
     {
       "id": "evt-002",
       "timestamp": "2024-09-27T04:15:00Z",
       "type": "road_closure",
-      "location": {"lat": 35.6101, "lon": -82.3092},
+      "location": {
+        "lat": 35.6101,
+        "lon": -82.3092
+      },
       "description": "I-40 CLOSED at mile marker 72 near Black Mountain. Multiple landslides blocking all lanes.",
       "source": "ncdot",
-      "confidence": 0.98
+      "confidence": 0.98,
+      "affected_polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -82.3092,
+              35.611897
+            ],
+            [
+              -82.307637,
+              35.61137
+            ],
+            [
+              -82.30699,
+              35.6101
+            ],
+            [
+              -82.307637,
+              35.60883
+            ],
+            [
+              -82.3092,
+              35.608303
+            ],
+            [
+              -82.310763,
+              35.60883
+            ],
+            [
+              -82.31141,
+              35.6101
+            ],
+            [
+              -82.310763,
+              35.61137
+            ],
+            [
+              -82.3092,
+              35.611897
+            ]
+          ]
+        ]
+      }
     },
     {
       "id": "evt-003",
       "timestamp": "2024-09-27T05:00:00Z",
       "type": "bridge_collapse",
-      "location": {"lat": 35.4654, "lon": -82.5276},
+      "location": {
+        "lat": 35.4654,
+        "lon": -82.5276
+      },
       "description": "Bridge on Highway 25 over Mud Creek has collapsed. DO NOT ATTEMPT TO CROSS.",
       "source": "local_emergency",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "affected_polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -82.5276,
+              35.466747
+            ],
+            [
+              -82.52643,
+              35.466353
+            ],
+            [
+              -82.525946,
+              35.4654
+            ],
+            [
+              -82.52643,
+              35.464447
+            ],
+            [
+              -82.5276,
+              35.464053
+            ],
+            [
+              -82.52877,
+              35.464447
+            ],
+            [
+              -82.529254,
+              35.4654
+            ],
+            [
+              -82.52877,
+              35.466353
+            ],
+            [
+              -82.5276,
+              35.466747
+            ]
+          ]
+        ]
+      }
     },
     {
       "id": "evt-004",
       "timestamp": "2024-09-27T06:30:00Z",
       "type": "road_closure",
-      "location": {"lat": 35.7596, "lon": -81.6799},
+      "location": {
+        "lat": 35.7596,
+        "lon": -81.6799
+      },
       "description": "US-221 closed near Linville Falls due to severe road damage and debris.",
       "source": "ncdot",
-      "confidence": 0.97
+      "confidence": 0.97,
+      "affected_polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -81.6799,
+              35.761397
+            ],
+            [
+              -81.678334,
+              35.76087
+            ],
+            [
+              -81.677686,
+              35.7596
+            ],
+            [
+              -81.678334,
+              35.75833
+            ],
+            [
+              -81.6799,
+              35.757803
+            ],
+            [
+              -81.681466,
+              35.75833
+            ],
+            [
+              -81.682114,
+              35.7596
+            ],
+            [
+              -81.681466,
+              35.76087
+            ],
+            [
+              -81.6799,
+              35.761397
+            ]
+          ]
+        ]
+      }
     },
     {
       "id": "evt-005",
       "timestamp": "2024-09-27T07:00:00Z",
       "type": "shelter_opening",
-      "location": {"lat": 35.5312, "lon": -82.8299},
+      "location": {
+        "lat": 35.5312,
+        "lon": -82.8299
+      },
       "name": "Asheville High School Emergency Shelter",
       "capacity": 250,
-      "needs": ["water", "blankets", "medical_supplies"],
+      "needs": [
+        "water",
+        "blankets",
+        "medical_supplies"
+      ],
       "source": "local_emergency",
       "confidence": 1.0
     },
@@ -64,29 +255,129 @@
       "id": "evt-006",
       "timestamp": "2024-09-27T08:00:00Z",
       "type": "flooding",
-      "location": {"lat": 35.5785, "lon": -82.5556},
+      "location": {
+        "lat": 35.5785,
+        "lon": -82.5556
+      },
       "description": "URGENT: Biltmore Village completely flooded. Water at roof level on some buildings. Swannanoa River still rising.",
       "source": "twitter",
       "confidence": 0.85,
-      "corroborations": 12
+      "corroborations": 12,
+      "affected_polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -82.5556,
+              35.582992
+            ],
+            [
+              -82.551695,
+              35.581676
+            ],
+            [
+              -82.550077,
+              35.5785
+            ],
+            [
+              -82.551695,
+              35.575324
+            ],
+            [
+              -82.5556,
+              35.574008
+            ],
+            [
+              -82.559505,
+              35.575324
+            ],
+            [
+              -82.561123,
+              35.5785
+            ],
+            [
+              -82.559505,
+              35.581676
+            ],
+            [
+              -82.5556,
+              35.582992
+            ]
+          ]
+        ]
+      }
     },
     {
       "id": "evt-007",
       "timestamp": "2024-09-27T08:30:00Z",
       "type": "road_closure",
-      "location": {"lat": 35.5950, "lon": -82.5500},
+      "location": {
+        "lat": 35.595,
+        "lon": -82.55
+      },
       "description": "All downtown Asheville streets impassable. Do not attempt travel.",
       "source": "local_emergency",
-      "confidence": 0.98
+      "confidence": 0.98,
+      "affected_polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -82.55,
+              35.596797
+            ],
+            [
+              -82.548438,
+              35.59627
+            ],
+            [
+              -82.547791,
+              35.595
+            ],
+            [
+              -82.548438,
+              35.59373
+            ],
+            [
+              -82.55,
+              35.593203
+            ],
+            [
+              -82.551562,
+              35.59373
+            ],
+            [
+              -82.552209,
+              35.595
+            ],
+            [
+              -82.551562,
+              35.59627
+            ],
+            [
+              -82.55,
+              35.596797
+            ]
+          ]
+        ]
+      }
     },
     {
       "id": "evt-008",
       "timestamp": "2024-09-27T09:00:00Z",
       "type": "shelter_opening",
-      "location": {"lat": 35.4368, "lon": -82.4573},
+      "location": {
+        "lat": 35.4368,
+        "lon": -82.4573
+      },
       "name": "Hendersonville First Baptist Church",
       "capacity": 150,
-      "needs": ["water", "food", "diapers", "pet_supplies"],
+      "needs": [
+        "water",
+        "food",
+        "diapers",
+        "pet_supplies"
+      ],
       "source": "local_emergency",
       "confidence": 1.0
     },
@@ -94,16 +385,65 @@
       "id": "evt-009",
       "timestamp": "2024-09-27T09:15:00Z",
       "type": "road_closure",
-      "location": {"lat": 35.3576, "lon": -83.1965},
+      "location": {
+        "lat": 35.3576,
+        "lon": -83.1965
+      },
       "description": "US-19/23 closed in Swain County. Road washed out near Bryson City.",
       "source": "ncdot",
-      "confidence": 0.97
+      "confidence": 0.97,
+      "affected_polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -83.1965,
+              35.359397
+            ],
+            [
+              -83.194942,
+              35.35887
+            ],
+            [
+              -83.194297,
+              35.3576
+            ],
+            [
+              -83.194942,
+              35.35633
+            ],
+            [
+              -83.1965,
+              35.355803
+            ],
+            [
+              -83.198058,
+              35.35633
+            ],
+            [
+              -83.198703,
+              35.3576
+            ],
+            [
+              -83.198058,
+              35.35887
+            ],
+            [
+              -83.1965,
+              35.359397
+            ]
+          ]
+        ]
+      }
     },
     {
       "id": "evt-010",
       "timestamp": "2024-09-27T10:00:00Z",
       "type": "power_outage",
-      "location": {"lat": 35.5951, "lon": -82.5515},
+      "location": {
+        "lat": 35.5951,
+        "lon": -82.5515
+      },
       "description": "Over 1 million customers without power across Western NC. Duke Energy reports extensive infrastructure damage.",
       "source": "news",
       "confidence": 0.95
@@ -112,29 +452,86 @@
       "id": "evt-011",
       "timestamp": "2024-09-27T10:30:00Z",
       "type": "supplies_needed",
-      "location": {"lat": 35.7847, "lon": -82.5127},
+      "location": {
+        "lat": 35.7847,
+        "lon": -82.5127
+      },
       "description": "Mars Hill area cut off. Running out of drinking water. Need helicopter resupply.",
       "source": "twitter",
-      "confidence": 0.70,
+      "confidence": 0.7,
       "corroborations": 8
     },
     {
       "id": "evt-012",
       "timestamp": "2024-09-27T11:00:00Z",
       "type": "bridge_collapse",
-      "location": {"lat": 35.7271, "lon": -82.3116},
+      "location": {
+        "lat": 35.7271,
+        "lon": -82.3116
+      },
       "description": "Old Fort bridge on I-40 severely damaged. Interstate will be closed for weeks.",
       "source": "ncdot",
-      "confidence": 0.99
+      "confidence": 0.99,
+      "affected_polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -82.3116,
+              35.728447
+            ],
+            [
+              -82.310426,
+              35.728053
+            ],
+            [
+              -82.30994,
+              35.7271
+            ],
+            [
+              -82.310426,
+              35.726147
+            ],
+            [
+              -82.3116,
+              35.725753
+            ],
+            [
+              -82.312774,
+              35.726147
+            ],
+            [
+              -82.31326,
+              35.7271
+            ],
+            [
+              -82.312774,
+              35.728053
+            ],
+            [
+              -82.3116,
+              35.728447
+            ]
+          ]
+        ]
+      }
     },
     {
       "id": "evt-013",
       "timestamp": "2024-09-27T12:00:00Z",
       "type": "shelter_opening",
-      "location": {"lat": 35.9132, "lon": -81.5388},
+      "location": {
+        "lat": 35.9132,
+        "lon": -81.5388
+      },
       "name": "Watauga County Fairgrounds Shelter",
       "capacity": 300,
-      "needs": ["generators", "fuel", "medical_supplies", "water"],
+      "needs": [
+        "generators",
+        "fuel",
+        "medical_supplies",
+        "water"
+      ],
       "source": "local_emergency",
       "confidence": 1.0
     },
@@ -142,30 +539,87 @@
       "id": "evt-014",
       "timestamp": "2024-09-27T12:30:00Z",
       "type": "rescue_needed",
-      "location": {"lat": 35.6841, "lon": -82.4088},
+      "location": {
+        "lat": 35.6841,
+        "lon": -82.4088
+      },
       "description": "Multiple people stranded on rooftops in Swannanoa. Chimney Rock area devastated.",
       "source": "twitter",
-      "confidence": 0.80,
+      "confidence": 0.8,
       "corroborations": 15
     },
     {
       "id": "evt-015",
       "timestamp": "2024-09-27T13:00:00Z",
       "type": "road_damage",
-      "location": {"lat": 35.4505, "lon": -82.5259},
+      "location": {
+        "lat": 35.4505,
+        "lon": -82.5259
+      },
       "description": "US-25 south of Asheville passable but damaged. Single lane only. Use extreme caution.",
       "source": "citizen_report",
       "confidence": 0.65,
-      "corroborations": 4
+      "corroborations": 4,
+      "affected_polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -82.5259,
+              35.451398
+            ],
+            [
+              -82.52512,
+              35.451135
+            ],
+            [
+              -82.524797,
+              35.4505
+            ],
+            [
+              -82.52512,
+              35.449865
+            ],
+            [
+              -82.5259,
+              35.449602
+            ],
+            [
+              -82.52668,
+              35.449865
+            ],
+            [
+              -82.527003,
+              35.4505
+            ],
+            [
+              -82.52668,
+              35.451135
+            ],
+            [
+              -82.5259,
+              35.451398
+            ]
+          ]
+        ]
+      }
     },
     {
       "id": "evt-016",
       "timestamp": "2024-09-27T14:00:00Z",
       "type": "shelter_opening",
-      "location": {"lat": 35.2551, "lon": -82.7239},
+      "location": {
+        "lat": 35.2551,
+        "lon": -82.7239
+      },
       "name": "Brevard College Emergency Shelter",
       "capacity": 200,
-      "needs": ["water", "food", "cots", "charging_stations"],
+      "needs": [
+        "water",
+        "food",
+        "cots",
+        "charging_stations"
+      ],
       "source": "local_emergency",
       "confidence": 1.0
     },
@@ -173,7 +627,10 @@
       "id": "evt-017",
       "timestamp": "2024-09-27T15:00:00Z",
       "type": "infrastructure_damage",
-      "location": {"lat": 35.5951, "lon": -82.5515},
+      "location": {
+        "lat": 35.5951,
+        "lon": -82.5515
+      },
       "description": "Asheville water treatment plant offline. Entire city water system compromised. Boil water advisory in effect.",
       "source": "local_emergency",
       "confidence": 0.99
@@ -182,16 +639,65 @@
       "id": "evt-018",
       "timestamp": "2024-09-27T16:00:00Z",
       "type": "road_closure",
-      "location": {"lat": 35.8661, "lon": -81.9716},
+      "location": {
+        "lat": 35.8661,
+        "lon": -81.9716
+      },
       "description": "Blue Ridge Parkway closed entirely from Asheville to Virginia border.",
       "source": "ncdot",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "affected_polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -81.9716,
+              35.867897
+            ],
+            [
+              -81.970032,
+              35.86737
+            ],
+            [
+              -81.969383,
+              35.8661
+            ],
+            [
+              -81.970032,
+              35.86483
+            ],
+            [
+              -81.9716,
+              35.864303
+            ],
+            [
+              -81.973168,
+              35.86483
+            ],
+            [
+              -81.973817,
+              35.8661
+            ],
+            [
+              -81.973168,
+              35.86737
+            ],
+            [
+              -81.9716,
+              35.867897
+            ]
+          ]
+        ]
+      }
     },
     {
       "id": "evt-019",
       "timestamp": "2024-09-27T17:00:00Z",
       "type": "supplies_needed",
-      "location": {"lat": 35.5312, "lon": -82.8299},
+      "location": {
+        "lat": 35.5312,
+        "lon": -82.8299
+      },
       "description": "Asheville High School shelter running low on water. Over 200 evacuees. Need resupply ASAP.",
       "source": "local_emergency",
       "confidence": 0.95
@@ -200,20 +706,73 @@
       "id": "evt-020",
       "timestamp": "2024-09-27T18:00:00Z",
       "type": "road_damage",
-      "location": {"lat": 35.5030, "lon": -82.9872},
+      "location": {
+        "lat": 35.503,
+        "lon": -82.9872
+      },
       "description": "NC-191 from Asheville to Brevard has damage but passable. Slow going. Only route south open.",
       "source": "citizen_report",
       "confidence": 0.72,
-      "corroborations": 6
+      "corroborations": 6,
+      "affected_polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -82.9872,
+              35.503898
+            ],
+            [
+              -82.98642,
+              35.503635
+            ],
+            [
+              -82.986097,
+              35.503
+            ],
+            [
+              -82.98642,
+              35.502365
+            ],
+            [
+              -82.9872,
+              35.502102
+            ],
+            [
+              -82.98798,
+              35.502365
+            ],
+            [
+              -82.988303,
+              35.503
+            ],
+            [
+              -82.98798,
+              35.503635
+            ],
+            [
+              -82.9872,
+              35.503898
+            ]
+          ]
+        ]
+      }
     },
     {
       "id": "evt-021",
       "timestamp": "2024-09-27T20:00:00Z",
       "type": "shelter_opening",
-      "location": {"lat": 35.3736, "lon": -83.2215},
+      "location": {
+        "lat": 35.3736,
+        "lon": -83.2215
+      },
       "name": "Cherokee Central Schools Shelter",
       "capacity": 175,
-      "needs": ["water", "blankets", "first_aid"],
+      "needs": [
+        "water",
+        "blankets",
+        "first_aid"
+      ],
       "source": "local_emergency",
       "confidence": 1.0
     },
@@ -221,7 +780,10 @@
       "id": "evt-022",
       "timestamp": "2024-09-27T22:00:00Z",
       "type": "road_clear",
-      "location": {"lat": 35.4368, "lon": -82.4573},
+      "location": {
+        "lat": 35.4368,
+        "lon": -82.4573
+      },
       "description": "US-64 from Hendersonville east to I-26 now clear. Single lane with flaggers.",
       "source": "ncdot",
       "confidence": 0.95
@@ -230,7 +792,10 @@
       "id": "evt-023",
       "timestamp": "2024-09-28T06:00:00Z",
       "type": "supplies_needed",
-      "location": {"lat": 35.4368, "lon": -82.4573},
+      "location": {
+        "lat": 35.4368,
+        "lon": -82.4573
+      },
       "description": "Hendersonville shelter at capacity. Urgent need for water, medical supplies, and portable toilets.",
       "source": "local_emergency",
       "confidence": 0.98
@@ -239,10 +804,17 @@
       "id": "evt-024",
       "timestamp": "2024-09-28T08:00:00Z",
       "type": "shelter_opening",
-      "location": {"lat": 35.6587, "lon": -82.1557},
+      "location": {
+        "lat": 35.6587,
+        "lon": -82.1557
+      },
       "name": "Black Mountain Presbyterian Church",
       "capacity": 100,
-      "needs": ["water", "food", "medications"],
+      "needs": [
+        "water",
+        "food",
+        "medications"
+      ],
       "source": "local_emergency",
       "confidence": 1.0
     },
@@ -250,17 +822,66 @@
       "id": "evt-025",
       "timestamp": "2024-09-28T10:00:00Z",
       "type": "road_damage",
-      "location": {"lat": 35.5585, "lon": -82.6330},
+      "location": {
+        "lat": 35.5585,
+        "lon": -82.633
+      },
       "description": "NC-63 (Haywood Road) passable with caution. Minor debris still being cleared.",
       "source": "citizen_report",
       "confidence": 0.68,
-      "corroborations": 3
+      "corroborations": 3,
+      "affected_polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -82.633,
+              35.559398
+            ],
+            [
+              -82.632219,
+              35.559135
+            ],
+            [
+              -82.631896,
+              35.5585
+            ],
+            [
+              -82.632219,
+              35.557865
+            ],
+            [
+              -82.633,
+              35.557602
+            ],
+            [
+              -82.633781,
+              35.557865
+            ],
+            [
+              -82.634104,
+              35.5585
+            ],
+            [
+              -82.633781,
+              35.559135
+            ],
+            [
+              -82.633,
+              35.559398
+            ]
+          ]
+        ]
+      }
     },
     {
       "id": "evt-026",
       "timestamp": "2024-09-28T12:00:00Z",
       "type": "supplies_needed",
-      "location": {"lat": 35.9132, "lon": -81.5388},
+      "location": {
+        "lat": 35.9132,
+        "lon": -81.5388
+      },
       "description": "Watauga County shelter needs generators. Power still out. Running on last fuel reserves.",
       "source": "local_emergency",
       "confidence": 0.97
@@ -269,7 +890,10 @@
       "id": "evt-027",
       "timestamp": "2024-09-28T14:00:00Z",
       "type": "road_clear",
-      "location": {"lat": 35.4505, "lon": -82.5259},
+      "location": {
+        "lat": 35.4505,
+        "lon": -82.5259
+      },
       "description": "US-25 fully reopened with both lanes. Crews have cleared debris.",
       "source": "ncdot",
       "confidence": 0.98
@@ -278,17 +902,66 @@
       "id": "evt-028",
       "timestamp": "2024-09-28T16:00:00Z",
       "type": "flooding",
-      "location": {"lat": 35.7847, "lon": -82.5127},
+      "location": {
+        "lat": 35.7847,
+        "lon": -82.5127
+      },
       "description": "Mars Hill flooding receding but roads still damaged. Madison County isolated.",
       "source": "twitter",
       "confidence": 0.75,
-      "corroborations": 7
+      "corroborations": 7,
+      "affected_polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -82.5127,
+              35.789192
+            ],
+            [
+              -82.508785,
+              35.787876
+            ],
+            [
+              -82.507163,
+              35.7847
+            ],
+            [
+              -82.508785,
+              35.781524
+            ],
+            [
+              -82.5127,
+              35.780208
+            ],
+            [
+              -82.516615,
+              35.781524
+            ],
+            [
+              -82.518237,
+              35.7847
+            ],
+            [
+              -82.516615,
+              35.787876
+            ],
+            [
+              -82.5127,
+              35.789192
+            ]
+          ]
+        ]
+      }
     },
     {
       "id": "evt-029",
       "timestamp": "2024-09-28T18:00:00Z",
       "type": "supplies_needed",
-      "location": {"lat": 35.2551, "lon": -82.7239},
+      "location": {
+        "lat": 35.2551,
+        "lon": -82.7239
+      },
       "description": "Brevard shelter needs baby formula, diapers, and pet food urgently.",
       "source": "local_emergency",
       "confidence": 0.95
@@ -297,10 +970,56 @@
       "id": "evt-030",
       "timestamp": "2024-09-28T20:00:00Z",
       "type": "road_damage",
-      "location": {"lat": 35.7596, "lon": -81.6799},
+      "location": {
+        "lat": 35.7596,
+        "lon": -81.6799
+      },
       "description": "US-221 emergency repairs underway. May be passable for supply trucks by tomorrow.",
       "source": "ncdot",
-      "confidence": 0.90
+      "confidence": 0.9,
+      "affected_polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -81.6799,
+              35.760498
+            ],
+            [
+              -81.679117,
+              35.760235
+            ],
+            [
+              -81.678793,
+              35.7596
+            ],
+            [
+              -81.679117,
+              35.758965
+            ],
+            [
+              -81.6799,
+              35.758702
+            ],
+            [
+              -81.680683,
+              35.758965
+            ],
+            [
+              -81.681007,
+              35.7596
+            ],
+            [
+              -81.680683,
+              35.760235
+            ],
+            [
+              -81.6799,
+              35.760498
+            ]
+          ]
+        ]
+      }
     }
   ]
 }

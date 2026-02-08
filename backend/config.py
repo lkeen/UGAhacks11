@@ -12,6 +12,7 @@ load_dotenv(_project_root / ".env")
 
 # API Keys
 ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+ORS_API_KEY: str = os.getenv("ORS_API_KEY", "")
 
 # Database
 DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///backend/data/disaster_relief.db")
