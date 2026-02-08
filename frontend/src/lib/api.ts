@@ -240,6 +240,18 @@ interface AdvanceTimeResponse {
     confidence: number;
     agent_name: string;
   }>;
+  new_agent_reports: Array<{
+    id: string;
+    timestamp: string;
+    event_type: string;
+    location: { lat: number; lon: number; address?: string };
+    description: string;
+    source: string;
+    confidence: number;
+    agent_name: string;
+    corroborations: number;
+    metadata: Record<string, unknown>;
+  }>;
 }
 
 /**

@@ -283,6 +283,7 @@ async def advance_scenario_time(request: AdvanceTimeRequest):
 
     # Convert reports to event format for the frontend
     new_events = []
+    new_agent_reports = []
     for source, reports in new_intelligence.items():
         for report in reports:
             new_events.append({
@@ -296,6 +297,8 @@ async def advance_scenario_time(request: AdvanceTimeRequest):
                 "confidence": report.confidence,
                 "agent_name": report.agent_name,
             })
+            # Also add full report for the reports log
+            new_agent_reports.append(report.to_dict())
 
     return {
         "message": f"Advanced scenario by {request.hours} hours",
@@ -305,6 +308,7 @@ async def advance_scenario_time(request: AdvanceTimeRequest):
             source: len(reports) for source, reports in new_intelligence.items()
         },
         "new_events": new_events,
+        "new_agent_reports": new_agent_reports,
     }
 
 

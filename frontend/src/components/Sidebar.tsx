@@ -21,7 +21,7 @@ import {
   X,
   Target,
 } from 'lucide-react';
-import type { Shelter, Event, EventType } from '@/types';
+import type { Shelter, Event, EventType, AgentReport } from '@/types';
 import clsx from 'clsx';
 import { format } from 'date-fns';
 
@@ -34,6 +34,8 @@ interface SidebarProps {
   onEventTypeSelect: (type: EventType | null) => void;
   highlightedEventId: number | string | null;
   onEventSelect: (event: Event | null) => void;
+  selectedEvent: Event | null;
+  agentReports: AgentReport[];
 }
 
 // Event type colors - comprehensive list matching Map.tsx
@@ -64,6 +66,8 @@ export function Sidebar({
   onEventTypeSelect,
   highlightedEventId,
   onEventSelect,
+  selectedEvent,
+  agentReports,
 }: SidebarProps) {
   const [sheltersExpanded, setSheltersExpanded] = useState(true);
   const [eventsExpanded, setEventsExpanded] = useState(true);
@@ -140,6 +144,19 @@ export function Sidebar({
 
   const getEventConfig = (type: string) => {
     return EVENT_TYPE_CONFIG[type] || { color: 'text-gray-600', hex: '#6b7280', label: type.replace(/_/g, ' ') };
+  };
+
+  // Get all reports for a specific event location
+  const getReportsForEvent = (event: Event) => {
+    return agentReports.filter((report) => {
+      const latDiff = Math.abs(report.location.lat - event.location_lat);
+      const lonDiff = Math.abs(report.location.lon - event.location_lon);
+      return (
+        report.event_type === event.event_type &&
+        latDiff < 0.005 &&
+        lonDiff < 0.005
+      );
+    });
   };
 
   // If a shelter is selected, show the detail view
@@ -304,6 +321,164 @@ export function Sidebar({
             <p>Lat: {selectedShelter.location_lat?.toFixed(4)}</p>
             <p>Lon: {selectedShelter.location_lon?.toFixed(4)}</p>
           </div>
+        </div>
+      </aside>
+    );
+  }
+
+  // If an event is selected, show the event detail view
+  if (selectedEvent) {
+    const eventConfig = getEventConfig(selectedEvent.event_type);
+    const relatedReports = getReportsForEvent(selectedEvent);
+    const corroborationCount = selectedEvent.corroborations || relatedReports.length - 1;
+
+    return (
+      <aside className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
+        {/* Header with back button */}
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-gray-900 dark:text-white">
+              Event Details
+            </h2>
+            <button
+              onClick={() => onEventSelect(null)}
+              className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+              title="Close"
+            >
+              <X className="w-4 h-4 text-gray-500" />
+            </button>
+          </div>
+        </div>
+
+        {/* Event detail content */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {/* Event type and status */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span
+                className="w-4 h-4 rounded-full"
+                style={{ backgroundColor: eventConfig.hex }}
+              />
+              <span className={clsx('text-lg font-bold', eventConfig.color)}>
+                {eventConfig.label}
+              </span>
+            </div>
+            {corroborationCount > 0 && (
+              <div className="inline-flex items-center px-2 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-lg text-sm">
+                <CheckCircle className="w-4 h-4 mr-1" />
+                {corroborationCount} corroborating report{corroborationCount > 1 ? 's' : ''}
+              </div>
+            )}
+          </div>
+
+          {/* Description */}
+          <div className="mb-4">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Description
+            </h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {selectedEvent.description || 'No description available'}
+            </p>
+          </div>
+
+          {/* Location */}
+          <div className="mb-4">
+            <div className="flex items-start gap-2">
+              <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+              <div>
+                {selectedEvent.location_address && (
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">
+                    {selectedEvent.location_address}
+                  </p>
+                )}
+                <p className="text-xs text-gray-400">
+                  {selectedEvent.location_lat?.toFixed(5)}, {selectedEvent.location_lon?.toFixed(5)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Timestamp */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-gray-400" />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                {formatEventTime(selectedEvent.timestamp)}
+              </span>
+            </div>
+          </div>
+
+          {/* Confidence and Source */}
+          <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Confidence</span>
+              <span className={clsx(
+                'px-2 py-0.5 rounded text-sm font-medium',
+                selectedEvent.confidence >= 0.8
+                  ? 'bg-success-100 text-success-700'
+                  : selectedEvent.confidence >= 0.6
+                  ? 'bg-warning-100 text-warning-700'
+                  : 'bg-danger-100 text-danger-700'
+              )}>
+                {Math.round(selectedEvent.confidence * 100)}%
+              </span>
+            </div>
+            <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+              <div
+                className={clsx(
+                  'h-full rounded-full transition-all',
+                  selectedEvent.confidence >= 0.8 ? 'bg-success-500' :
+                  selectedEvent.confidence >= 0.6 ? 'bg-warning-500' : 'bg-danger-500'
+                )}
+                style={{ width: `${selectedEvent.confidence * 100}%` }}
+              />
+            </div>
+            {selectedEvent.source && (
+              <p className="text-xs text-gray-500 mt-2">
+                Source: <span className="capitalize">{selectedEvent.source.replace('_', ' ')}</span>
+              </p>
+            )}
+          </div>
+
+          {/* Related Reports */}
+          {relatedReports.length > 0 && (
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                All Reports ({relatedReports.length})
+              </h4>
+              <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                {relatedReports.map((report, idx) => (
+                  <div
+                    key={report.id || idx}
+                    className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-xs border-l-2"
+                    style={{ borderColor: eventConfig.hex }}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-gray-700 dark:text-gray-300 capitalize">
+                        {report.agent_name?.replace('_', ' ') || report.source?.replace('_', ' ')}
+                      </span>
+                      <span className={clsx(
+                        'px-1.5 py-0.5 rounded',
+                        report.confidence >= 0.8
+                          ? 'bg-success-100 text-success-700'
+                          : report.confidence >= 0.6
+                          ? 'bg-warning-100 text-warning-700'
+                          : 'bg-danger-100 text-danger-700'
+                      )}>
+                        {Math.round(report.confidence * 100)}%
+                      </span>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400 mb-1">
+                      {report.description}
+                    </p>
+                    <span className="text-gray-400">
+                      {formatEventTime(report.timestamp)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </aside>
     );
@@ -490,6 +665,8 @@ export function Sidebar({
                       <div className="px-4 pb-2 space-y-2">
                         {typeEvents.slice(0, 10).map((event, idx) => {
                           const isSelected = highlightedEventId === event.id;
+                          const eventReports = getReportsForEvent(event);
+                          const corroborations = event.corroborations || (eventReports.length > 0 ? eventReports.length - 1 : 0);
                           return (
                             <button
                               key={event.id || idx}
@@ -506,9 +683,16 @@ export function Sidebar({
                                 <p className="text-gray-700 dark:text-gray-300 line-clamp-2 flex-1">
                                   {event.description || 'No description'}
                                 </p>
-                                {isSelected && (
-                                  <Target className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                                )}
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  {corroborations > 0 && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded text-xs font-medium">
+                                      +{corroborations}
+                                    </span>
+                                  )}
+                                  {isSelected && (
+                                    <Target className="w-4 h-4 text-primary-500" />
+                                  )}
+                                </div>
                               </div>
                               <div className="flex items-center gap-2 mt-1 text-gray-500">
                                 <Clock className="w-3 h-3" />

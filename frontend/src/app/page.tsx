@@ -47,6 +47,7 @@ export default function Home() {
   const [scenarioTime, setScenarioTime] = useState(DEFAULT_SCENARIO_TIME);
   const [agentLogs, setAgentLogs] = useState<AgentLogEntry[]>([]);
   const [selectedShelter, setSelectedShelter] = useState<Shelter | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [highlightedEventType, setHighlightedEventType] = useState<EventType | null>(null);
   const [highlightedEventId, setHighlightedEventId] = useState<number | string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -153,31 +154,98 @@ export default function Home() {
         }
       });
 
-      // Add new events to the events list (avoid duplicates by ID)
+      // Add new agent reports to the reports state
+      if (response.new_agent_reports && response.new_agent_reports.length > 0) {
+        setAgentReports((prevReports) => {
+          const existingIds = new Set(prevReports.map((r) => r.id));
+          const newReports = response.new_agent_reports
+            .filter((r) => !existingIds.has(r.id))
+            .map((r) => ({
+              id: r.id,
+              timestamp: r.timestamp,
+              event_type: r.event_type as EventType,
+              location: r.location,
+              description: r.description,
+              source: r.source as AgentReport['source'],
+              confidence: r.confidence,
+              raw_data: {},
+              corroborations: r.corroborations || 0,
+              agent_name: r.agent_name,
+              metadata: r.metadata || {},
+            }));
+          return [...prevReports, ...newReports];
+        });
+      }
+
+      // Add new events to the events list
       if (response.new_events && response.new_events.length > 0) {
         setEvents((prevEvents) => {
-          const existingIds = new Set(prevEvents.map((e) => String(e.id)));
-          const uniqueNewEvents: Event[] = response.new_events
-            .filter((e) => !existingIds.has(e.id))
-            .map((e) => ({
-              id: e.id as unknown as number,
-              timestamp: e.timestamp,
-              event_type: e.event_type as EventType,
-              location_lat: e.location_lat,
-              location_lon: e.location_lon,
-              description: e.description,
-              source: e.source as Event['source'],
-              confidence: e.confidence,
-              severity: 5,
-              affected_radius_m: 100,
-              corroborations: 0,
-              is_active: true,
-              created_at: e.timestamp,
-              updated_at: e.timestamp,
-            }));
-          return [...prevEvents, ...uniqueNewEvents];
+          let updatedEvents = [...prevEvents];
+
+          for (const e of response.new_events) {
+            // Check if this is a road_clear event
+            if (e.event_type === 'road_clear') {
+              // Remove any previous road_closure or road_damage events at similar location
+              updatedEvents = updatedEvents.filter((existingEvent) => {
+                if (
+                  existingEvent.event_type === 'road_closure' ||
+                  existingEvent.event_type === 'road_damage'
+                ) {
+                  // Check if within ~0.01 degrees (~1km)
+                  const latDiff = Math.abs(existingEvent.location_lat - e.location_lat);
+                  const lonDiff = Math.abs(existingEvent.location_lon - e.location_lon);
+                  if (latDiff < 0.01 && lonDiff < 0.01) {
+                    addLogEntry('system', `Road cleared: ${existingEvent.description.substring(0, 50)}...`, 'success');
+                    return false; // Remove this event
+                  }
+                }
+                return true;
+              });
+            }
+
+            // Check for duplicate - if same location and type, increment corroborations
+            const existingIndex = updatedEvents.findIndex((existing) => {
+              const latDiff = Math.abs(existing.location_lat - e.location_lat);
+              const lonDiff = Math.abs(existing.location_lon - e.location_lon);
+              return (
+                existing.event_type === e.event_type &&
+                latDiff < 0.005 &&
+                lonDiff < 0.005
+              );
+            });
+
+            if (existingIndex >= 0) {
+              // Increment corroborations on existing event
+              updatedEvents[existingIndex] = {
+                ...updatedEvents[existingIndex],
+                corroborations: (updatedEvents[existingIndex].corroborations || 0) + 1,
+              };
+            } else {
+              // Add as new event
+              updatedEvents.push({
+                id: e.id as unknown as number,
+                timestamp: e.timestamp,
+                event_type: e.event_type as EventType,
+                location_lat: e.location_lat,
+                location_lon: e.location_lon,
+                description: e.description,
+                source: e.source as Event['source'],
+                confidence: e.confidence,
+                severity: 5,
+                affected_radius_m: 100,
+                corroborations: 0,
+                is_active: true,
+                created_at: e.timestamp,
+                updated_at: e.timestamp,
+              });
+            }
+          }
+
+          return updatedEvents;
         });
-        addLogEntry('system', `${response.new_events.length} new events detected`, 'success');
+
+        const newEventCount = response.new_events.length;
+        addLogEntry('system', `${newEventCount} new report${newEventCount > 1 ? 's' : ''} processed`, 'success');
       }
     } catch (err) {
       console.error('Failed to advance time:', err);
@@ -197,6 +265,7 @@ export default function Home() {
   };
 
   const handleEventSelect = (event: Event | null) => {
+    setSelectedEvent(event);
     if (event) {
       // Select event and zoom to its location
       setHighlightedEventId(event.id);
@@ -271,6 +340,8 @@ export default function Home() {
           onEventTypeSelect={setHighlightedEventType}
           highlightedEventId={highlightedEventId}
           onEventSelect={handleEventSelect}
+          selectedEvent={selectedEvent}
+          agentReports={agentReports}
         />
 
         {/* Map area */}
